@@ -5,12 +5,21 @@ import ClickTopBar from './components/ClickTopBar';
 import { LandingBrief, SignedInBrief } from './components/GettingStarted';
 import Container from './components/container';
 import { Welcome } from './components/GettingStarted/components';
+import { X402Demo } from './components/X402Demo';
 import { AppTheme } from './settings/theme';
 
 const GettingStartedContainer = styled.div(({ theme }) =>
   theme.withMedia({
     maxWidth: ['100%', '720px', '960px'],
     padding: '0 12px',
+    margin: '0 auto'
+  })
+);
+
+const DemoSection = styled.div(({ theme }) =>
+  theme.withMedia({
+    maxWidth: ['100%', '720px', '960px'],
+    padding: '2rem 12px',
     margin: '0 auto'
   })
 );
@@ -48,6 +57,10 @@ const App = () => {
         <GettingStartedContainer id={'getting-started'}>
           {activeAccount ? <SignedInBrief /> : <LandingBrief />}
         </GettingStartedContainer>
+        
+        <DemoSection id={'x402-demo'}>
+          <X402Demo />
+        </DemoSection>
       </Container>
     </ThemeProvider>
   );
