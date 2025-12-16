@@ -3,16 +3,7 @@
 use odra::prelude::*;
 use odra::{casper_types::U256, Event};
 
-// Error codes
-pub mod errors {
-    
-    pub const INSUFFICIENT_BALANCE: u16 = 100;
-    pub const INSUFFICIENT_ALLOWANCE: u16 = 101;
-    pub const INVALID_NONCE: u16 = 200;
-    pub const INVALID_SIGNATURE: u16 = 201;
-    pub const EXPIRED: u16 = 202;
-    pub const ZERO_ADDRESS: u16 = 203;
-}
+// Using panic! for error handling in this version
 
 // Events
 #[derive(Event, Debug, PartialEq, Eq)]
@@ -79,7 +70,7 @@ impl Cep18Permit {
 
         let from_balance = self.balances.get_or_default(&from);
         if from_balance < amount {
-            self.env().revert(ExecutionError::User(errors::INSUFFICIENT_BALANCE));
+            panic!("Insufficient balance");
         }
 
         let to_balance = self.balances.get_or_default(&to);
@@ -148,7 +139,7 @@ impl Cep18Permit {
         let current_allowance = self.allowances.get_or_default(&(*owner, spender));
         
         if current_allowance < amount {
-            self.env().revert(ExecutionError::User(errors::INSUFFICIENT_ALLOWANCE));
+            panic!("Insufficient allowance");
         }
 
         self.allowances.set(&(*owner, spender), current_allowance - amount);
@@ -177,13 +168,13 @@ impl Cep18Permit {
         // 2. Verify deadline
         let current_timestamp = self.env().get_block_time();
         if current_timestamp > deadline {
-            self.env().revert(ExecutionError::User(errors::EXPIRED));
+            panic!("Signature expired");
         }
 
         // 3. Verify nonce (anti-replay protection)
         let current_nonce = self.nonces.get_or_default(&user_account);
         if nonce != current_nonce {
-            self.env().revert(ExecutionError::User(errors::INVALID_NONCE));
+            panic!("Invalid nonce");
         }
 
         // Increment nonce to prevent replay
@@ -205,7 +196,7 @@ impl Cep18Permit {
         // 5. Signature verification would go here
         // For now, we'll assume the signature is valid if it's not empty
         if signature.is_empty() {
-            self.env().revert(ExecutionError::User(errors::INVALID_SIGNATURE));
+            panic!("Invalid signature");
         }
 
         // Note: In production, you'd verify the signature against the message and public key
