@@ -6,6 +6,7 @@ import { LandingBrief, SignedInBrief } from './components/GettingStarted';
 import Container from './components/container';
 import { Welcome } from './components/GettingStarted/components';
 import { X402Demo } from './components/X402Demo';
+import { Cep18PermitTest } from './components/Cep18PermitTest';
 import { AppTheme } from './settings/theme';
 
 const GettingStartedContainer = styled.div(({ theme }) =>
@@ -28,6 +29,7 @@ const App = () => {
   const clickRef = useClickRef();
   const [themeMode, setThemeMode] = useState<ThemeModeType>(ThemeModeType.light);
   const [activeAccount, setActiveAccount] = useState<any>(null);
+  const [currentPage, setCurrentPage] = useState<'home' | 'test'>('home');
 
   useEffect(() => {
     clickRef?.on('csprclick:signed_in', async (evt: any) => {
@@ -44,6 +46,16 @@ const App = () => {
     });
   }, [clickRef?.on]);
 
+  // Handle URL-based routing
+  useEffect(() => {
+    const path = window.location.pathname;
+    if (path === '/test') {
+      setCurrentPage('test');
+    } else {
+      setCurrentPage('home');
+    }
+  }, []);
+
   return (
     <ThemeProvider theme={AppTheme[themeMode]}>
       <ClickTopBar
@@ -53,14 +65,61 @@ const App = () => {
         }
       />
       <Container>
-        <Welcome />
-        <GettingStartedContainer id={'getting-started'}>
-          {activeAccount ? <SignedInBrief /> : <LandingBrief />}
-        </GettingStartedContainer>
-        
-        <DemoSection id={'x402-demo'}>
-          <X402Demo />
-        </DemoSection>
+        {currentPage === 'test' ? (
+          <>
+            <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+              <button
+                onClick={() => {
+                  setCurrentPage('home');
+                  window.history.pushState({}, '', '/');
+                }}
+                style={{
+                  background: 'transparent',
+                  border: '1px solid #ccc',
+                  padding: '0.5rem 1rem',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '14px'
+                }}
+              >
+                ← Back to Home
+              </button>
+            </div>
+            <Cep18PermitTest />
+          </>
+        ) : (
+          <>
+            <Welcome />
+            <GettingStartedContainer id={'getting-started'}>
+              {activeAccount ? <SignedInBrief /> : <LandingBrief />}
+            </GettingStartedContainer>
+            
+            <DemoSection id={'x402-demo'}>
+              <X402Demo />
+            </DemoSection>
+
+            <div style={{ textAlign: 'center', marginTop: '3rem', marginBottom: '2rem' }}>
+              <button
+                onClick={() => {
+                  setCurrentPage('test');
+                  window.history.pushState({}, '', '/test');
+                }}
+                style={{
+                  background: '#007bff',
+                  color: 'white',
+                  border: 'none',
+                  padding: '0.75rem 1.5rem',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '16px',
+                  fontWeight: '600'
+                }}
+              >
+                🧪 Go to Contract Test Page
+              </button>
+            </div>
+          </>
+        )}
       </Container>
     </ThemeProvider>
   );

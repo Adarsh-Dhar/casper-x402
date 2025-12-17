@@ -64,7 +64,8 @@ export const useX402 = (): UseX402Return => {
           throw new Error(`Payment requirements missing required fields: ${missing.join(', ')}`);
         }
 
-      if (!clickRef?.activeAccount?.public_key) {
+      const account = clickRef?.getActiveAccount?.();
+      if (!account?.public_key) {
         throw new Error("Wallet not connected");
       }
 
@@ -77,10 +78,10 @@ export const useX402 = (): UseX402Return => {
       // The wallet handles the Blake2b hashing and prefixing internally
       const signResult = await clickRef.signMessage(
         paymentPayload,
-        clickRef.activeAccount.public_key
+        account.public_key
       );
 
-      if (signResult.cancelled) {
+      if (!signResult || signResult.cancelled) {
         throw new Error("User cancelled signature");
       }
 
@@ -88,7 +89,7 @@ export const useX402 = (): UseX402Return => {
       // Create the X-PAYMENT header
       const xPaymentHeader = JSON.stringify({
         signature: signResult.signatureHex, // The hex signature
-        public_key: clickRef.activeAccount.public_key,
+        public_key: account.public_key,
         amount: amount,
         nonce: nonce,
         payload_str: paymentPayload // Optional: helps backend verify formatting

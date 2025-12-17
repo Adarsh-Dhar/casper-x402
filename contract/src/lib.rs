@@ -45,20 +45,21 @@ pub struct Cep18Permit {
 #[odra::module]
 impl Cep18Permit {
     /// Initialize the contract
-    pub fn init(&mut self, name: String, symbol: String, decimals: u8, total_supply: U256) {
-        self.name.set(name);
-        self.symbol.set(symbol);
-        self.decimals.set(decimals);
-        self.total_supply.set(total_supply);
+    pub fn init(&mut self) {
+        // Hardcoded values to bypass CLI argument errors
+        self.name.set("FinnStake Token".to_string());
+        self.symbol.set("FINN".to_string());
+        self.decimals.set(18); // u8
+        self.total_supply.set(U256::from(1000000000000000000000u128)); // 1000 Tokens
 
         // Mint initial supply to caller
         let caller = self.env().caller();
-        self.balances.set(&caller, total_supply);
+        self.balances.set(&caller, self.total_supply.get_or_default());
 
         self.env().emit_event(Transfer {
             from: None,
             to: Some(caller),
-            amount: total_supply,
+            amount: self.total_supply.get_or_default(),
         });
     }
 

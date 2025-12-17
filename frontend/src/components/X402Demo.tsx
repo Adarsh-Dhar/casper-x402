@@ -7,19 +7,19 @@ const DemoContainer = styled.div`
   padding: 2rem;
   max-width: 800px;
   margin: 0 auto;
-  background: ${({ theme }) => theme.colors.background};
+  background: #ffffff;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 `;
 
 const Title = styled.h1`
-  color: ${({ theme }) => theme.colors.text};
+  color: #1a1919;
   margin-bottom: 1rem;
   text-align: center;
 `;
 
 const Description = styled.p`
-  color: ${({ theme }) => theme.colors.textSecondary};
+  color: #666666;
   margin-bottom: 2rem;
   text-align: center;
   line-height: 1.6;
@@ -34,7 +34,7 @@ const ActionSection = styled.div`
 `;
 
 const PaymentButton = styled.button`
-  background: ${({ theme }) => theme.colors.primary};
+  background: #007bff;
   color: white;
   border: none;
   padding: 12px 24px;
@@ -45,7 +45,7 @@ const PaymentButton = styled.button`
   transition: background-color 0.2s;
 
   &:hover {
-    background: ${({ theme }) => theme.colors.primaryHover || theme.colors.primary};
+    background: #0056b3;
     opacity: 0.9;
   }
 
@@ -60,7 +60,7 @@ const LogsSection = styled.div`
 `;
 
 const LogsTitle = styled.h3`
-  color: ${({ theme }) => theme.colors.text};
+  color: #1a1919;
   margin-bottom: 1rem;
 `;
 
