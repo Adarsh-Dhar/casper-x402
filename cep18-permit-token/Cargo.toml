@@ -1,0 +1,30 @@
+[package]
+name = "cep18-permit-token"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+casper-contract = "4.0.0"
+casper-types = "4.0.0"
+
+[[bin]]
+name = "fixed_minimal"
+path = "src/fixed_minimal.rs"
+
+[[bin]]
+name = "ultra_minimal"
+path = "src/ultra_minimal.rs"
+
+[[bin]]
+name = "minimal"
+path = "src/minimal.rs"
+
+[lib]
+crate-type = ["cdylib"]
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+overflow-checks = false

@@ -9,3 +9,9 @@
 /frontend/.next/*
 
 /facilitator/node_modules
+
+/cep18-permit-token/target
+/cep18-permit-token/.cargo
+/cep18-permit-token/.hypothesis
+/cep18-permit-token/wasm
+/cep18-permit-token/__pycache__

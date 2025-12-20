@@ -1,0 +1,8 @@
+# Python dependencies for CEP-18 Permit Token testing and deployment
+hypothesis>=6.0.0
+pytest>=7.0.0
+pytest-xdist>=3.0.0
+cryptography>=3.4.0
+pycryptodome>=3.15.0
+requests>=2.28.0
+toml>=0.10.0
