@@ -1,0 +1,65 @@
+[package]
+name = "my_project"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+odra = { version = "2.4.0", features = [], default-features = false }
+casper-contract = { version = "5.1.1", default-features = false }
+casper-types = { version = "6.1.0", default-features = false }
+wee_alloc = { version = "0.4.5", default-features = false }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+odra-cli = { version = "2", optional = true }
+odra-test = { version = "2.4.0", features = [], default-features = false, optional = true }
+proptest = { version = "1.0", optional = true }
+tempfile = { version = "3.0", optional = true }
+odra-build = { version = "2.4.0", features = [], default-features = false, optional = true }
+
+[features]
+build-deps = ["odra-cli", "odra-test", "proptest", "tempfile", "odra-build"]
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.2", features = ["js"] }
+
+[dev-dependencies]
+odra-test = { version = "2.4.0", features = [], default-features = false }
+
+[build-dependencies]
+odra-build = { version = "2.4.0", features = [], default-features = false }
+
+[[bin]]
+name = "minimal_contract"
+path = "src/minimal_contract.rs"
+test = false
+
+[[bin]]
+name = "my_project_build_contract"
+path = "bin/build_contract.rs"
+test = false
+required-features = ["build-deps"]
+
+[[bin]]
+name = "my_project_build_schema"
+path = "bin/build_schema.rs"
+test = false
+required-features = ["build-deps"]
+
+[[bin]]
+name = "my_project_cli"
+path = "bin/cli.rs"
+test = false
+required-features = ["build-deps"]
+
+[[bin]]
+name = "odra-cli"
+path = "bin/odra-cli.rs"
+test = false
+required-features = ["build-deps"]
+
+[profile.release]
+codegen-units = 1
+lto = true
+
+[profile.dev.package."*"]
+opt-level = 3

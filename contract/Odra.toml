@@ -1,5 +1,0 @@
-[[contracts]]
-fqn = "flipper::Flipper"
-
-[[contracts]]
-fqn = "Cep18Permit"
