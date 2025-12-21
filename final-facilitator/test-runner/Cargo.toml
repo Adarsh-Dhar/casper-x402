@@ -1,0 +1,10 @@
+[package]
+name = "facilitator-tests"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# No Casper dependencies - pure Rust testing
+
+[dev-dependencies]
+proptest = "1.0"

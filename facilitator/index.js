@@ -3,16 +3,19 @@
  * This service monitors for payment authorization requests and submits them to the blockchain
  */
 
-const { CasperClient, CLPublicKey, CLValueBuilder, RuntimeArgs, DeployUtil } = require('casper-js-sdk');
+// Load environment variables
+require('dotenv').config();
+
+const { CasperClient, CLPublicKey, CLValueBuilder, RuntimeArgs, DeployUtil, Keys } = require('casper-js-sdk');
 const fs = require('fs');
 
-// Configuration
+// Configuration - Load from environment variables
 const CONFIG = {
-    nodeAddress: 'http://136.243.187.84:7777', // Testnet RPC node
-    chainName: 'casper-test',
-    contractHash: 'hash-YOUR-CONTRACT-HASH', // Replace with deployed contract hash
-    facilitatorKeyPath: './keys/facilitator-secret.pem', // Facilitator's private key
-    gasPayment: '2500000000', // 2.5 CSPR for gas
+    nodeAddress: process.env.CASPER_NODE_ADDRESS || 'https://node.testnet.casper.network/rpc',
+    chainName: process.env.CASPER_CHAIN_NAME || 'casper-test',
+    contractHash: process.env.CONTRACT_HASH || 'hash-937627b2d99b08199fad92f566495f4979e4fa5b8f4ecefba632be9b310c6cbb',
+    facilitatorKeyPath: process.env.FACILITATOR_KEY_PATH || './keys/facilitator-secret.pem',
+    gasPayment: process.env.GAS_PAYMENT || '2500000000',
 };
 
 /**
@@ -20,8 +23,7 @@ const CONFIG = {
  * @returns {Object} - Key pair object
  */
 function loadFacilitatorKeys() {
-    const privateKeyPem = fs.readFileSync(CONFIG.facilitatorKeyPath, 'utf8');
-    const keyPair = CasperClient.loadKeyPairFromPrivateFile(privateKeyPem);
+    const keyPair = Keys.Ed25519.loadKeyPairFromPrivateFile(CONFIG.facilitatorKeyPath);
     return keyPair;
 }
 
@@ -34,12 +36,13 @@ function loadFacilitatorKeys() {
 function createClaimPaymentDeploy(authorization, keyPair) {
     const { userPublicKey, recipient, amount, nonce, deadline, signature } = authorization;
 
-    // Parse public key
-    const userPubKey = CLPublicKey.fromHex(userPublicKey);
+    // Parse public key - handle both old and new field names
+    const publicKeyHex = userPublicKey || authorization.owner_public_key;
+    const userPubKey = CLPublicKey.fromHex(publicKeyHex);
     
     // Build runtime arguments
     const args = RuntimeArgs.fromMap({
-        user_pubkey: CLValueBuilder.publicKey(userPubKey),
+        user_pubkey: userPubKey,
         recipient: CLValueBuilder.byteArray(Buffer.from(recipient.replace('account-hash-', ''), 'hex')),
         amount: CLValueBuilder.u256(amount),
         nonce: CLValueBuilder.u64(nonce),
@@ -50,10 +53,11 @@ function createClaimPaymentDeploy(authorization, keyPair) {
     // Create deploy
     const deploy = DeployUtil.makeDeploy(
         new DeployUtil.DeployParams(
-            CLPublicKey.fromHex(keyPair.publicKey.toHex()),
+            keyPair.publicKey,
             CONFIG.chainName,
             1, // Gas price (typically 1)
-            1800000 // TTL (30 minutes)
+            1800000, // TTL (30 minutes)
+            Date.now() // Current timestamp
         ),
         DeployUtil.ExecutableDeployItem.newStoredContractByHash(
             Buffer.from(CONFIG.contractHash.replace('hash-', ''), 'hex'),
@@ -74,7 +78,7 @@ function createClaimPaymentDeploy(authorization, keyPair) {
  */
 async function signAndSendDeploy(deploy, keyPair) {
     // Sign the deploy
-    const signedDeploy = deploy.sign([keyPair]);
+    const signedDeploy = DeployUtil.signDeploy(deploy, keyPair);
 
     // Create Casper client
     const client = new CasperClient(CONFIG.nodeAddress);
