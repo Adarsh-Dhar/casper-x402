@@ -1,4 +1,0 @@
-# file: /Users/adarsh/Documents/casper/deploy_nuclear.py
-# hypothesis_version: 6.148.7
-
-['__main__', 'casper-test', 'keys/secret_key.pem', 'target', 'wasm']
