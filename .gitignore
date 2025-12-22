@@ -21,3 +21,9 @@
 /final-facilitator/keys
 /final-facilitator/test-runner/target
 
+/final-facilitator/docs/x402/demo/node_modules
+/final-facilitator/docs/x402/demo/api/node_modules
+/final-facilitator/docs/x402/demo/client/node_modules
+/final-facilitator/docs/x402/demo/facilitator/node_modules
+
+

@@ -1,0 +1,43 @@
+{
+  "name": "casper-x402-demo",
+  "version": "1.0.0",
+  "description": "Casper x402 Payment Protocol Demo - Similar to Solana Kora",
+  "main": "client/demo.js",
+  "scripts": {
+    "setup": "./scripts/setup.sh",
+    "start": "concurrently \"npm run start:facilitator\" \"npm run start:api\"",
+    "start:facilitator": "cd facilitator && node server.js",
+    "start:api": "cd api && node server.js",
+    "demo": "cd client && node demo.js",
+    "test": "node scripts/test-integration.js",
+    "test:unit": "jest",
+    "keys:generate": "node scripts/generate-keys.js",
+    "keys:validate": "node scripts/generate-keys.js validate",
+    "clean": "rm -rf node_modules facilitator/node_modules api/node_modules client/node_modules",
+    "install:all": "npm install && cd facilitator && npm install && cd ../api && npm install && cd ../client && npm install"
+  },
+  "keywords": [
+    "casper",
+    "x402",
+    "payment",
+    "protocol",
+    "blockchain",
+    "demo",
+    "kora"
+  ],
+  "author": "Casper x402 Demo",
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^16.3.1",
+    "casper-js-sdk": "^2.15.1",
+    "axios": "^1.6.2"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "jest": "^29.7.0",
+    "supertest": "^6.3.3"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}

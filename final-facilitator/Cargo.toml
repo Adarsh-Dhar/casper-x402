@@ -21,6 +21,27 @@ getrandom = { version = "0.2", features = ["js"] }
 name = "contract_benchmarks"
 harness = false
 
+# Examples
+[[example]]
+name = "demo"
+path = "examples/getting-started/demo/main.rs"
+
+[[example]]
+name = "fee_calculation"
+path = "examples/getting-started/basic/fee_calculation.rs"
+
+[[example]]
+name = "token_management"
+path = "examples/getting-started/basic/token_management.rs"
+
+[[example]]
+name = "integration_test"
+path = "examples/advanced/integration_test.rs"
+
+[[example]]
+name = "payment_processor"
+path = "examples/integration/payment_processor.rs"
+
 [lib]
 crate-type = ["cdylib"]
 
