@@ -10,7 +10,7 @@ import datetime
 # Configuration
 NODE_ADDRESS = "https://node.testnet.casper.network/rpc"
 CHAIN_NAME = "casper-test"
-SECRET_KEY_PATH = "../my-project/keys/secret_key.pem"
+SECRET_KEY_PATH = "../final-facilitator/keys/secret_key.pem"
 PAYMENT_AMOUNT = "350000000000"  # 350 CSPR
 ACCOUNT_HASH = "account-hash-9f6bc6ed963b3e2874785a348c83f1b446dd6feb9a235b5f854f6430bef48003"
 

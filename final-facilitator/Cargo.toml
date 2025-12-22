@@ -24,6 +24,18 @@ harness = false
 [lib]
 crate-type = ["cdylib"]
 
+[[bin]]
+name = "exact_cep18_copy"
+path = "src/exact_cep18_copy.rs"
+
+[[bin]]
+name = "no_params"
+path = "src/no_params.rs"
+
+[[bin]]
+name = "zero_params"
+path = "src/zero_params.rs"
+
 [profile.release]
 codegen-units = 1
 lto = true

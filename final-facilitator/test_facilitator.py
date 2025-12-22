@@ -8,10 +8,10 @@ import subprocess
 import json
 import time
 
-# Configuration
-NODE_ADDRESS = os.getenv("CASPER_NODE_ADDRESS", "http://65.109.222.111:7777")
+# Configuration - Updated for testnet
+NODE_ADDRESS = os.getenv("CASPER_NODE_ADDRESS", "https://node.testnet.casper.network/rpc")
 CHAIN_NAME = os.getenv("CASPER_CHAIN_NAME", "casper-test")
-SECRET_KEY_PATH = os.getenv("CASPER_SECRET_KEY", "~/casper/casper-node/utils/nctl/assets/net-1/nodes/node-1/keys/secret_key.pem")
+SECRET_KEY_PATH = os.getenv("CASPER_SECRET_KEY", "./keys/secret_key.pem")
 CONTRACT_HASH = os.getenv("CONTRACT_HASH", "")  # Set this after deployment
 
 def main():

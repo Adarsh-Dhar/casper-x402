@@ -16,6 +16,14 @@ name = "ultra_minimal"
 path = "src/ultra_minimal.rs"
 
 [[bin]]
+name = "hardcoded_minimal"
+path = "src/hardcoded_minimal.rs"
+
+[[bin]]
+name = "absolute_minimal"
+path = "src/absolute_minimal.rs"
+
+[[bin]]
 name = "minimal"
 path = "src/minimal.rs"
 
