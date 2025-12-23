@@ -9,11 +9,13 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@make-software/csprclick-react": "^0.7.4",
     "antd": "^6.1.1",
     "casper-js-sdk": "^5.0.7",
     "next": "16.1.0",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "styled-components": "^6.1.19"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

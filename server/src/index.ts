@@ -2,16 +2,26 @@ import express from "express";
 import cors from "cors";
 import { spawn, ChildProcess } from "child_process";
 import path from "path";
+import { fileURLToPath } from "url";
+import { CasperTransactionService } from "./casperService.js";
 import "dotenv/config";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 4402;
 const FACILITATOR_PORT = process.env.FACILITATOR_PORT || 8080;
 const CASPER_CONTRACT_HASH = process.env.CASPER_CONTRACT_HASH;
 const CASPER_PAY_TO = process.env.CASPER_PAY_TO;
+const CASPER_NODE_URL = process.env.CASPER_NODE_URL || 'https://node.testnet.casper.network/rpc';
+const CASPER_NETWORK_NAME = process.env.CASPER_NETWORK_NAME || 'casper-test';
 const FACILITATOR_BASE_URL = `http://localhost:${FACILITATOR_PORT}`;
 
 let facilitatorProcess: ChildProcess | null = null;
+
+// Initialize Casper transaction service
+const casperService = new CasperTransactionService(CASPER_NODE_URL, CASPER_NETWORK_NAME);
 
 // Middleware
 app.use(express.json());
@@ -22,11 +32,11 @@ app.use(cors({
 
 async function startFacilitator() {
   try {
-    const facilitatorPath = path.resolve(__dirname, "../../final-facilitator");
+    const facilitatorPath = path.resolve(__dirname, "../../facilitator-standalone");
     
     console.log(`Starting Casper facilitator at ${facilitatorPath}...`);
     
-    facilitatorProcess = spawn("cargo", ["run", "--bin", "facilitator-server"], {
+    facilitatorProcess = spawn("cargo", ["run"], {
       cwd: facilitatorPath,
       stdio: ["pipe", "pipe", "pipe"],
       env: {
@@ -67,7 +77,7 @@ async function casperX402Middleware(req: express.Request, res: express.Response,
       network: "casper-test",
       contract_hash: CASPER_CONTRACT_HASH,
       pay_to: CASPER_PAY_TO,
-      amount: "1000000000", // 1 CSPR in motes
+      amount: "2500000000", // 2.5 CSPR in motes (minimum transfer amount on Casper testnet)
       description: "Premium workshop content access",
       facilitator_url: FACILITATOR_BASE_URL
     };
@@ -84,25 +94,49 @@ async function casperX402Middleware(req: express.Request, res: express.Response,
   try {
     // Verify payment with facilitator
     const paymentData = JSON.parse(paymentHeader);
+    console.log('🔍 Received payment data:', JSON.stringify(paymentData, null, 2));
+    
     const verificationResponse = await fetch(`${FACILITATOR_BASE_URL}/verify_payment`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(paymentData)
     });
     
+    console.log('📡 Facilitator response status:', verificationResponse.status);
+    
     if (verificationResponse.ok) {
       const result = await verificationResponse.json();
+      console.log('📋 Facilitator response:', JSON.stringify(result, null, 2));
+      
       if (result.valid) {
         return next(); // Payment verified, continue
       }
+      
+      // Payment verification failed
+      res.status(402);
+      return res.json({
+        error: "Payment Verification Failed",
+        message: "The provided payment could not be verified",
+        details: result.message || "Unknown verification error"
+      });
+    } else {
+      // Facilitator returned an error
+      let errorMessage = `Facilitator error: ${verificationResponse.status}`;
+      try {
+        const errorText = await verificationResponse.text();
+        console.log('❌ Facilitator error response:', errorText);
+        errorMessage = errorText;
+      } catch (parseError) {
+        console.log('❌ Could not parse facilitator error response');
+      }
+      
+      res.status(402);
+      return res.json({
+        error: "Payment Verification Failed",
+        message: "The facilitator rejected the payment",
+        details: errorMessage
+      });
     }
-    
-    // Payment verification failed
-    res.status(402);
-    return res.json({
-      error: "Payment Verification Failed",
-      message: "The provided payment could not be verified"
-    });
     
   } catch (error) {
     console.error("Payment verification error:", error);
@@ -147,6 +181,155 @@ app.get("/api/info", async (_req, res) => {
     res.status(500).json({
       error: "Unable to fetch server info",
       message: error instanceof Error ? error.message : "Unknown error"
+    });
+  }
+});
+
+// Temporary deploy storage (in production, use Redis or database)
+const deployStorage = new Map<string, any>();
+
+// Real Casper transaction endpoints
+app.post("/api/casper/create-deploy", async (req, res) => {
+  try {
+    const { fromPublicKey, toPublicKey, amount } = req.body;
+
+    console.log('🔄 Creating deploy for signing');
+    console.log('   From:', fromPublicKey);
+    console.log('   To:', toPublicKey);
+    console.log('   Amount:', amount);
+
+    // Validate request (skip signature for create-deploy)
+    const validation = casperService.validateTransaction({
+      fromPublicKey,
+      toPublicKey,
+      amount,
+      signature: '' // No signature needed for create-deploy
+    });
+
+    if (!validation.valid) {
+      return res.status(400).json({
+        success: false,
+        error: validation.error
+      });
+    }
+
+    // Create deploy
+    const { deploy, deployHash } = await casperService.createTransferDeploy(
+      fromPublicKey,
+      toPublicKey,
+      amount
+    );
+
+    // Store deploy temporarily for later use
+    deployStorage.set(deployHash, deploy);
+    
+    // Clean up old deploys (keep only last 100)
+    if (deployStorage.size > 100) {
+      const firstKey = deployStorage.keys().next().value;
+      if (firstKey) {
+        deployStorage.delete(firstKey);
+      }
+    }
+
+    res.json({
+      success: true,
+      deployHash,
+      deployJson: JSON.stringify(deploy), // Include deploy JSON for wallet signing
+      message: 'Deploy created successfully. Sign the deployHash with your wallet.'
+    });
+
+  } catch (error) {
+    console.error('❌ Error creating deploy:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+app.post("/api/casper/submit-transaction", async (req, res) => {
+  try {
+    const { fromPublicKey, toPublicKey, amount, signature, deployHash } = req.body;
+
+    console.log('🚀 Submitting real Casper transaction');
+    console.log('   From:', fromPublicKey);
+    console.log('   To:', toPublicKey);
+    console.log('   Amount:', amount, 'motes');
+    console.log('   Deploy hash:', deployHash);
+
+    // Validate request
+    const validation = casperService.validateTransaction({
+      fromPublicKey,
+      toPublicKey,
+      amount,
+      signature
+    });
+
+    if (!validation.valid) {
+      return res.status(400).json({
+        success: false,
+        error: validation.error
+      });
+    }
+
+    // Retrieve the stored deploy
+    const deploy = deployStorage.get(deployHash);
+    
+    if (!deploy) {
+      return res.status(400).json({
+        success: false,
+        error: 'Deploy not found. Please create a new deploy first.'
+      });
+    }
+
+    console.log('✅ Retrieved stored deploy for hash:', deployHash);
+
+    // Submit signed deploy
+    const result = await casperService.submitSignedDeploy(
+      deploy,
+      signature,
+      fromPublicKey
+    );
+
+    // Clean up the stored deploy after use
+    deployStorage.delete(deployHash);
+
+    if (result.success) {
+      console.log('✅ Transaction submitted successfully');
+      console.log('   Deploy hash:', result.deployHash);
+      console.log('   Explorer:', result.explorerUrl);
+    } else {
+      console.error('❌ Transaction failed:', result.error);
+    }
+
+    res.json(result);
+
+  } catch (error) {
+    console.error('❌ Error submitting transaction:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+app.get("/api/casper/balance/:publicKey", async (req, res) => {
+  try {
+    const { publicKey } = req.params;
+    const balance = await casperService.getAccountBalance(publicKey);
+    
+    res.json({
+      success: true,
+      publicKey,
+      balance,
+      balanceCSPR: (parseInt(balance) / 1000000000).toFixed(9)
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching balance:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 });
