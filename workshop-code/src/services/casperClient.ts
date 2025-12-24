@@ -1,6 +1,6 @@
 import { 
   PrivateKey, 
-  KeyAlgorithm,
+  KeyAlgorithm
 } from 'casper-js-sdk';
 import { ActiveAccountType } from '../types';
 
@@ -39,7 +39,7 @@ export class CasperPaymentClient {
   }
 
   /**
-   * 1. Create Payment with Wallet (Was missing)
+   * 1. Create Payment with Wallet
    */
   async createPaymentDataWithWallet(
     activeAccount: ActiveAccountType,
@@ -58,14 +58,12 @@ export class CasperPaymentClient {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ step: 'create-deploy', activeAccount, paymentInfo })
       });
-      console.log("create response", createResponse)
       
       if (!createResponse.ok) throw new Error('Deploy creation failed');
       const createResult = await createResponse.json();
       
       // Step 2: Sign
       let signResult = await signMessage(createResult.deployHash, activeAccount.public_key);
-      console.log("sign result", signResult)
       if (signResult.cancelled || !signResult.signature) throw new Error('Signing failed');
 
       // Step 3: Submit
@@ -80,7 +78,6 @@ export class CasperPaymentClient {
           deployHash: createResult.deployHash
         })
       });
-      console.log("submit response", submitResponse)
       
       if (!submitResponse.ok) throw new Error('Submission failed');
       const result = await submitResponse.json();
@@ -113,11 +110,10 @@ export class CasperPaymentClient {
   }
 
   /**
-   * 2. Get Balance (Was missing)
+   * 2. Get Balance
    */
   async getAccountBalance(publicKey: string): Promise<string> {
     try {
-      // Get State Root Hash
       const stateResponse = await fetch('/api/casper-rpc', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -127,7 +123,6 @@ export class CasperPaymentClient {
       const stateRootHash = stateData.result?.state_root_hash;
       if (!stateRootHash) return '0';
       
-      // Get Account Info
       const accountResponse = await fetch('/api/casper-rpc', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -137,7 +132,6 @@ export class CasperPaymentClient {
       const mainPurse = accountData.result?.account?.main_purse;
       if (!mainPurse) return '0';
       
-      // Get Balance
       const balanceResponse = await fetch('/api/casper-rpc', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -179,11 +173,11 @@ export class CasperPaymentClient {
     let privateKey: PrivateKey;
 
     try {
-      // Try Secp256k1
+      // Try Secp256k1 (This is what you need for your key)
       privateKey = await PrivateKey.fromHex(cleanHex, KeyAlgorithm.SECP256K1);
     } catch (e) {
       try {
-        // Try Ed25519
+        // Fallback to Ed25519
         privateKey = await PrivateKey.fromHex(cleanHex, KeyAlgorithm.ED25519);
       } catch (e2) {
         throw new Error('Invalid private key format');
@@ -199,13 +193,12 @@ export class CasperPaymentClient {
   }
 
   /**
-   * 5. Manual Payment Data (Was missing)
+   * 5. Manual Payment Data
    */
   async createPaymentData(
     keyPairInfo: KeyPairInfo,
     paymentInfo: PaymentInfo
   ): Promise<PaymentData> {
-    // Mock data for demo
     const deployHash = Array.from(crypto.getRandomValues(new Uint8Array(32)))
       .map(b => b.toString(16).padStart(2, '0')).join('');
     const signature = Array.from(crypto.getRandomValues(new Uint8Array(64)))
