@@ -43,7 +43,7 @@ export default function Home() {
         windowKeys: typeof window !== 'undefined' ? Object.keys(window).filter(key => key.toLowerCase().includes('casper')) : []
       };
       setWalletDebug(debug);
-      console.log('Wallet Debug Info:', debug);
+      // // console.log('Wallet Debug Info:', debug);
     }
   }, [isClient, csprClickReady]);
 
@@ -87,16 +87,16 @@ export default function Home() {
     }
   };
 
-  const handleGenerateKeyPair = () => {
-    const newKeyPair = generateKeyPair();
+  const handleGenerateKeyPair = async () => {
+    const newKeyPair = await generateKeyPair() || null;
     setKeyPair(newKeyPair);
     setPrivateKeyInput(newKeyPair.privateKey);
     clearError();
   };
 
-  const handleLoadKeyPair = () => {
+  const handleLoadKeyPair = async () => {
     try {
-      const loadedKeyPair = loadKeyPair(privateKeyInput);
+      const loadedKeyPair = await loadKeyPair(privateKeyInput);
       setKeyPair(loadedKeyPair);
       clearError();
     } catch (err) {
@@ -108,18 +108,20 @@ export default function Home() {
     if (!activeAccount) {
       return;
     }
+    console.log("active account", activeAccount)
 
     clearError();
     setContent('');
 
     try {
-      console.log('Attempting to unlock content with wallet:', activeAccount.public_key);
+      // // console.log('Attempting to unlock content with wallet:', activeAccount.public_key);
       const response = await fetchWithWalletPayment('/api/premium-content');
+      console.log('Response from server:', response);
 
       if (response.ok) {
         const data = await response.json();
         setContent(data.content || data.message);
-        console.log('Content unlocked successfully');
+        // // console.log('Content unlocked successfully');
       } else {
         let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
         

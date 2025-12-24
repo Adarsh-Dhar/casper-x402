@@ -3,16 +3,17 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    console.log('Received request body:', body);
     const { step, activeAccount, paymentInfo, signature, deployHash } = body;
     
     const serverUrl = process.env.SERVER_URL || 'http://localhost:4402';
-    
+    console.log("step",step)
     if (step === 'create-deploy') {
       // Step 1: Create deploy for signing
-      console.log('📝 Creating deploy for signing...');
-      console.log('👤 From:', activeAccount.public_key);
-      console.log('👤 To:', paymentInfo.pay_to);
-      console.log('💰 Amount:', paymentInfo.amount, 'motes');
+      // console.log('📝 Creating deploy for signing...');
+      // console.log('👤 From:', activeAccount.public_key);
+      // console.log('👤 To:', paymentInfo.pay_to);
+      // console.log('💰 Amount:', paymentInfo.amount, 'motes');
       
       const createResponse = await fetch(`${serverUrl}/api/casper/create-deploy`, {
         method: 'POST',
@@ -25,6 +26,8 @@ export async function POST(request: NextRequest) {
           amount: paymentInfo.amount
         })
       });
+
+      console.log('createResponse:', createResponse);
       
       if (!createResponse.ok) {
         const error = await createResponse.json();
@@ -71,9 +74,9 @@ export async function POST(request: NextRequest) {
       const submitResult = await submitResponse.json();
       
       if (submitResult.success) {
-        console.log('🎉 REAL TRANSACTION SUBMITTED TO CASPER TESTNET!');
-        console.log('   Deploy hash:', submitResult.deployHash);
-        console.log('   Explorer URL:', submitResult.explorerUrl);
+        // console.log('🎉 REAL TRANSACTION SUBMITTED TO CASPER TESTNET!');
+        // console.log('   Deploy hash:', submitResult.deployHash);
+        // console.log('   Explorer URL:', submitResult.explorerUrl);
         
         return NextResponse.json({
           success: true,

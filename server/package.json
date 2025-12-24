@@ -11,6 +11,8 @@
     "test:integration": "node test-integration.js"
   },
   "dependencies": {
+    "@noble/hashes": "^2.0.1",
+    "@noble/secp256k1": "^3.0.0",
     "casper-js-sdk": "^2.15.7",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",

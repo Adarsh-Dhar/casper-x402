@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { CasperPaymentClient, PaymentInfo, PaymentData, KeyPairInfo } from '@/services/casperClient';
 import { ActiveAccountType } from '@/types';
 import useCsprClick from './useCsprClick';
@@ -11,12 +11,13 @@ interface UseCasperX402Return {
   activeAccount: ActiveAccountType | null;
   fetchWithPayment: (url: string, options?: RequestInit) => Promise<Response>;
   fetchWithWalletPayment: (url: string, options?: RequestInit) => Promise<Response>;
-  generateKeyPair: () => KeyPairInfo;
-  loadKeyPair: (privateKeyHex: string) => KeyPairInfo;
+  generateKeyPair: () => Promise<KeyPairInfo>;
+  loadKeyPair: (privateKeyHex: string) => Promise<KeyPairInfo>;
   getBalance: (publicKey: string) => Promise<void>;
   clearError: () => void;
 }
 
+// ✅ EXPORTED FUNCTION (This fixes your error)
 export function useCasperX402(): UseCasperX402Return {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -24,22 +25,23 @@ export function useCasperX402(): UseCasperX402Return {
   const [balance, setBalance] = useState<string>('0');
 
   const { activeAccount, signMessage } = useCsprClick();
-  const casperClient = new CasperPaymentClient(
+  
+  // Initialize the client (Memorized to prevent recreation)
+  const casperClient = useMemo(() => new CasperPaymentClient(
     process.env.NEXT_PUBLIC_CASPER_NODE_URL || process.env.CASPER_NODE_URL || 'http://localhost:11101/rpc',
     process.env.NEXT_PUBLIC_CASPER_NETWORK_NAME || process.env.CASPER_NETWORK_NAME || 'casper-test'
-  );
+  ), []);
 
   const clearError = useCallback(() => {
     setError(null);
   }, []);
 
-  // Listen for balance updates after transactions
+  // Balance Listener
   useEffect(() => {
     const handleBalanceUpdate = (event: CustomEvent) => {
-      const { balance, publicKey } = event.detail;
+      const { balance: newBalance, publicKey } = event.detail;
       if (activeAccount && publicKey === activeAccount.public_key) {
-        console.log('🔄 Balance updated from transaction confirmation:', balance);
-        setBalance(balance);
+        setBalance(newBalance);
       }
     };
 
@@ -51,13 +53,15 @@ export function useCasperX402(): UseCasperX402Return {
     }
   }, [activeAccount]);
 
-  const generateKeyPair = useCallback(() => {
-    return casperClient.generateKeyPair();
+  // Async Key Generation
+  const generateKeyPair = useCallback(async () => {
+    return await casperClient.generateKeyPair();
   }, [casperClient]);
 
-  const loadKeyPair = useCallback((privateKeyHex: string) => {
+  // Async Key Loading
+  const loadKeyPair = useCallback(async (privateKeyHex: string) => {
     try {
-      return casperClient.loadKeyPairFromHex(privateKeyHex);
+      return await casperClient.loadKeyPairFromHex(privateKeyHex);
     } catch (err) {
       setError('Invalid private key format');
       throw err;
@@ -75,50 +79,32 @@ export function useCasperX402(): UseCasperX402Return {
   }, [casperClient]);
 
   const fetchWithWalletPayment = useCallback(async (url: string, options?: RequestInit): Promise<Response> => {
-    if (!activeAccount) {
-      throw new Error('No wallet connected');
-    }
+    if (!activeAccount) throw new Error('No wallet connected');
 
     setLoading(true);
     setError(null);
 
     try {
-      console.log('🔄 Starting wallet payment flow for:', url);
-      console.log('🔑 Using wallet account:', activeAccount.public_key);
-      
-      // First request - should return 402 if payment required
+      // 1. Initial Request
       const initialResponse = await fetch(url, options);
-      console.log('📡 Initial response status:', initialResponse.status);
+      if (initialResponse.status !== 402) return initialResponse;
 
-      if (initialResponse.status !== 402) {
-        console.log('✅ No payment required, returning response');
-        return initialResponse;
-      }
-
-      // Get payment requirements from the 402 response
+      // 2. Parse Payment Info
       const paymentRequiredHeader = initialResponse.headers.get('X-Payment-Required');
-      console.log('💰 Payment required header:', paymentRequiredHeader);
-      
-      if (!paymentRequiredHeader) {
-        throw new Error('Payment required but no payment info provided');
-      }
+      if (!paymentRequiredHeader) throw new Error('Payment required but no payment info provided');
 
       const paymentInfo: PaymentInfo = JSON.parse(paymentRequiredHeader);
-      console.log('💳 Payment info:', paymentInfo);
       
-      // Create payment data using connected wallet
-      console.log('🔐 Creating payment data with wallet...');
+      // 3. Create & Sign Payment
       const signedPaymentData = await casperClient.createPaymentDataWithWallet(
         activeAccount, 
         paymentInfo, 
         signMessage
       );
       
-      console.log('✍️ Signed payment data:', signedPaymentData);
       setPaymentData(signedPaymentData);
 
-      // Retry the request with payment header
-      console.log('🔄 Retrying request with payment...');
+      // 4. Retry Request
       const paymentResponse = await fetch(url, {
         ...options,
         headers: {
@@ -127,16 +113,12 @@ export function useCasperX402(): UseCasperX402Return {
         },
       });
 
-      console.log('📡 Payment response status:', paymentResponse.status);
-      
       if (!paymentResponse.ok) {
         const errorText = await paymentResponse.text();
-        console.error('❌ Payment response error:', errorText);
-        
         try {
           const errorData = JSON.parse(errorText);
           throw new Error(errorData.error || errorData.message || `Payment failed: ${paymentResponse.status}`);
-        } catch (parseError) {
+        } catch (e) {
           throw new Error(`Payment failed: ${paymentResponse.status} - ${errorText}`);
         }
       }
@@ -145,7 +127,6 @@ export function useCasperX402(): UseCasperX402Return {
 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
-      console.error('❌ Wallet payment error:', errorMessage);
       setError(errorMessage);
       throw err;
     } finally {
@@ -158,31 +139,20 @@ export function useCasperX402(): UseCasperX402Return {
     setError(null);
 
     try {
-      // First request - should return 402 if payment required
       const initialResponse = await fetch(url, options);
+      if (initialResponse.status !== 402) return initialResponse;
 
-      if (initialResponse.status !== 402) {
-        return initialResponse;
-      }
-
-      // Get payment requirements from the 402 response
       const paymentRequiredHeader = initialResponse.headers.get('X-Payment-Required');
-      if (!paymentRequiredHeader) {
-        throw new Error('Payment required but no payment info provided');
-      }
+      if (!paymentRequiredHeader) throw new Error('Payment required but no payment info provided');
 
       const paymentInfo: PaymentInfo = JSON.parse(paymentRequiredHeader);
 
-      // For demo purposes, we'll create a mock key pair
-      // In a real app, this would come from a wallet connection
-      const keyPair = casperClient.generateKeyPair();
+      // Async Key Generation
+      const keyPair = await casperClient.generateKeyPair();
       
-      // Create payment data
       const signedPaymentData = await casperClient.createPaymentData(keyPair, paymentInfo);
-      
       setPaymentData(signedPaymentData);
 
-      // Retry the request with payment header
       const paymentResponse = await fetch(url, {
         ...options,
         headers: {

@@ -6,7 +6,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     
-    console.log('🌐 Proxying Casper RPC request:', body.method);
+    // console.log('🌐 Proxying Casper RPC request:', body.method);
     
     const response = await fetch(CASPER_RPC_URL, {
       method: 'POST',

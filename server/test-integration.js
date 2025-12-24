@@ -8,13 +8,13 @@ const SERVER_URL = 'http://localhost:4402';
 
 async function testEndpoint(name, url, options = {}) {
   try {
-    console.log(`\n🧪 Testing ${name}...`);
+    // console.log(`\n🧪 Testing ${name}...`);
     const response = await fetch(url, options);
     const data = await response.json();
     
-    console.log(`   Status: ${response.status}`);
-    console.log(`   Headers:`, Object.fromEntries(response.headers.entries()));
-    console.log(`   Body:`, JSON.stringify(data, null, 2));
+    // console.log(`   Status: ${response.status}`);
+    // console.log(`   Headers:`, Object.fromEntries(response.headers.entries()));
+    // console.log(`   Body:`, JSON.stringify(data, null, 2));
     
     return { success: true, status: response.status, data };
   } catch (error) {
@@ -24,8 +24,8 @@ async function testEndpoint(name, url, options = {}) {
 }
 
 async function runTests() {
-  console.log('🚀 Starting Casper X402 Integration Tests');
-  console.log(`📡 Server URL: ${SERVER_URL}`);
+  // console.log('🚀 Starting Casper X402 Integration Tests');
+  // console.log(`📡 Server URL: ${SERVER_URL}`);
   
   // Test 1: Health check
   await testEndpoint('Health Check', `${SERVER_URL}/health`);
@@ -66,11 +66,11 @@ async function runTests() {
     }
   });
   
-  console.log('\n✅ Integration tests completed!');
-  console.log('\n📝 Notes:');
-  console.log('   - Make sure the server is running: npm run dev');
-  console.log('   - The facilitator should start automatically');
-  console.log('   - Some tests may fail if facilitator is not ready');
+  // console.log('\n✅ Integration tests completed!');
+  // console.log('\n📝 Notes:');
+  // console.log('   - Make sure the server is running: npm run dev');
+  // console.log('   - The facilitator should start automatically');
+  // console.log('   - Some tests may fail if facilitator is not ready');
 }
 
 // Run tests if this script is executed directly

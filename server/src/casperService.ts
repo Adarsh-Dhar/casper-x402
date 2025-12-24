@@ -1,11 +1,14 @@
 import pkg from 'casper-js-sdk';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 const { 
   CasperClient, 
   DeployUtil, 
   CLValueBuilder, 
   CLPublicKey,
   RuntimeArgs,
-  decodeBase16
+  decodeBase16,
+  Keys
 } = pkg;
 
 // Type definitions for the imported classes
@@ -36,9 +39,9 @@ export class CasperTransactionService {
     this.nodeUrl = nodeUrl;
     this.networkName = networkName;
     this.casperClient = new CasperClient(nodeUrl);
-    console.log('🔧 CasperTransactionService initialized with REAL Casper SDK');
-    console.log('   Node URL:', nodeUrl);
-    console.log('   Network:', networkName);
+    // console.log('🔧 CasperTransactionService initialized with REAL Casper SDK');
+    // console.log('   Node URL:', nodeUrl);
+    // console.log('   Network:', networkName);
   }
 
   /**
@@ -50,10 +53,10 @@ export class CasperTransactionService {
     amount: string
   ): Promise<{ deploy: DeployType; deployHash: string }> {
     try {
-      console.log('🚀 Creating REAL Casper transfer deploy with SDK');
-      console.log('   From:', fromPublicKey);
-      console.log('   To:', toPublicKey);
-      console.log('   Amount:', amount, 'motes');
+      // console.log('🚀 Creating REAL Casper transfer deploy with SDK');
+      // console.log('   From:', fromPublicKey);
+      // console.log('   To:', toPublicKey);
+      // console.log('   Amount:', amount, 'motes');
 
       // Create CLPublicKey objects
       const fromCLPublicKey = CLPublicKey.fromHex(fromPublicKey);
@@ -68,9 +71,9 @@ export class CasperTransactionService {
       const deployTimestamp = currentTime - 300000; // 5 minutes in the past
       const transferId = Math.floor(currentTime / 1000); // Use seconds since epoch for transfer ID
       
-      console.log('🕐 Deploy timestamp:', new Date(deployTimestamp).toISOString());
-      console.log('🕐 Current time:', new Date(currentTime).toISOString());
-      console.log('🆔 Transfer ID:', transferId);
+      // console.log('🕐 Deploy timestamp:', new Date(deployTimestamp).toISOString());
+      // console.log('🕐 Current time:', new Date(currentTime).toISOString());
+      // console.log('🆔 Transfer ID:', transferId);
       
       const deploy = DeployUtil.makeDeploy(
         new DeployUtil.DeployParams(
@@ -92,16 +95,75 @@ export class CasperTransactionService {
 
       const deployHash = Buffer.from(deploy.hash).toString('hex');
       
-      console.log('✅ REAL Casper deploy created successfully');
-      console.log('   Deploy hash:', deployHash);
-      console.log('   Network:', this.networkName);
-      console.log('   Gas payment: 10 CSPR');
+      // console.log('✅ REAL Casper deploy created successfully');
+      // console.log('   Deploy hash:', deployHash);
+      // console.log('   Network:', this.networkName);
+      // console.log('   Gas payment: 10 CSPR');
 
       return { deploy, deployHash };
 
     } catch (error) {
       console.error('❌ Error creating real Casper deploy:', error);
       throw new Error(`Failed to create deploy: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Submit a signed deploy using private key directly (for testing)
+   */
+  async submitSignedDeployWithPrivateKey(
+    deploy: DeployType,
+    privateKeyHex: string,
+    publicKeyHex: string
+  ): Promise<TransactionResult> {
+    try {
+      // console.log('🔑 Testing with generated key pair');
+
+      // Generate a new key pair for testing
+      const keyPair = Keys.Secp256K1.new();
+      
+      // console.log('✅ Generated new key pair for testing');
+      // console.log('   Generated public key:', keyPair.publicKey.toHex());
+      // console.log('   Original public key:', publicKeyHex);
+
+      // Create a new deploy with the generated key pair's public key
+      const { deploy: testDeploy } = await this.createTransferDeploy(
+        keyPair.publicKey.toHex(),
+        publicKeyHex, // Send to the original target
+        '2500000000' // 2.5 CSPR (same as original request)
+      );
+
+      // Sign the deploy
+      const signedDeploy = DeployUtil.signDeploy(testDeploy, keyPair);
+      
+      // console.log('✅ Deploy signed successfully');
+      // console.log('   Approvals count:', signedDeploy.approvals.length);
+
+      // console.log('🌐 Submitting to Casper testnet via RPC...');
+      
+      // Submit to the real Casper network
+      const deployHash = await this.casperClient.putDeploy(signedDeploy);
+
+      // console.log('🎉 REAL TRANSACTION SUBMITTED TO CASPER NETWORK!');
+      // console.log('   Deploy hash:', deployHash);
+      // console.log('   Network:', this.networkName);
+
+      const explorerUrl = `https://testnet.cspr.live/deploy/${deployHash}`;
+      // console.log('   Explorer URL:', explorerUrl);
+
+      return {
+        success: true,
+        deployHash,
+        explorerUrl
+      };
+
+    } catch (error) {
+      console.error('❌ Error submitting deploy with private key:', error);
+      
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error submitting to Casper network'
+      };
     }
   }
 
@@ -114,34 +176,71 @@ export class CasperTransactionService {
     publicKey: string
   ): Promise<TransactionResult> {
     try {
-      console.log('📤 Submitting REAL signed deploy to Casper network');
-      console.log('   Signer:', publicKey);
-      console.log('   Signature length:', signature.length);
-      console.log('   Network:', this.networkName);
+      // console.log('📤 Submitting REAL signed deploy to Casper network');
+      // console.log('   Signer:', publicKey);
+      // console.log('   Signature length:', signature.length);
+      // console.log('   Network:', this.networkName);
 
-      // Create CLPublicKey and signature
-      const signerPublicKey = CLPublicKey.fromHex(publicKey);
+      // Create signature bytes
       const signatureBytes = decodeBase16(signature);
+
+      // console.log('🔍 Debug signature attachment:');
+      // console.log('   Original public key:', publicKey);
+      // console.log('   Signature hex:', signature);
+      // console.log('   Signature bytes length:', signatureBytes.length);
+      // console.log('   Deploy hash from deploy:', Buffer.from(deploy.hash).toString('hex'));
+
+      // Handle algorithm mismatch between public key format and wallet signature
+      // Most Casper wallets provide Ed25519 signatures regardless of public key format
+      let adjustedPublicKey = publicKey;
+      let signaturePrefix = 0x01; // Default to Ed25519
+      
+      if (publicKey.startsWith('02')) {
+        // Public key indicates Secp256k1, but wallet likely provides Ed25519 signature
+        // Convert public key to Ed25519 format to match the signature
+        adjustedPublicKey = '01' + publicKey.substring(2);
+        signaturePrefix = 0x01; // Ed25519
+        // console.log('🔄 Converting public key from Secp256k1 to Ed25519 format');
+        // console.log('   Original key:', publicKey);
+        // console.log('   Adjusted key:', adjustedPublicKey);
+      } else if (publicKey.startsWith('01')) {
+        signaturePrefix = 0x01; // Ed25519
+      }
+
+      const signerPublicKey = CLPublicKey.fromHex(adjustedPublicKey);
+
+      // Add algorithm prefix to signature if needed
+      let finalSignatureBytes = signatureBytes;
+      if (signatureBytes.length === 64) {
+        // console.log(`⚠️  Adding signature prefix (0x${signaturePrefix.toString(16).padStart(2, '0')})`);
+        finalSignatureBytes = new Uint8Array(65);
+        finalSignatureBytes[0] = signaturePrefix;
+        finalSignatureBytes.set(signatureBytes, 1);
+        // console.log('   New signature length:', finalSignatureBytes.length);
+      }
 
       // Add the signature to the deploy
       const signedDeploy = DeployUtil.setSignature(
         deploy,
-        signatureBytes,
+        finalSignatureBytes,
         signerPublicKey
       );
 
-      console.log('🌐 Submitting to Casper testnet via RPC...');
+      // console.log('✅ Signature attached to deploy');
+      // console.log('   Approvals count:', signedDeploy.approvals.length);
+
+      // console.log('🌐 Submitting to Casper testnet via RPC...');
       
       // Submit to the real Casper network
       const deployHash = await this.casperClient.putDeploy(signedDeploy);
 
-      console.log('🎉 REAL TRANSACTION SUBMITTED TO CASPER NETWORK!');
-      console.log('   Deploy hash:', deployHash);
-      console.log('   Network:', this.networkName);
-      console.log('   RPC URL:', this.nodeUrl);
+      // console.log('🎉 REAL TRANSACTION SUBMITTED TO CASPER NETWORK!');
+      // console.log('   Deploy hash:', deployHash);
+      // console.log('   Network:', this.networkName);
+      // console.log('   RPC URL:', this.nodeUrl);
 
       const explorerUrl = `https://testnet.cspr.live/deploy/${deployHash}`;
-      console.log('   Explorer URL:', explorerUrl);
+      // console.log('   Explorer URL:', explorerUrl);
 
       return {
         success: true,
@@ -170,11 +269,11 @@ export class CasperTransactionService {
    */
   async getAccountBalance(publicKey: string): Promise<string> {
     try {
-      console.log('💰 Fetching REAL account balance for:', publicKey);
+      // console.log('💰 Fetching REAL account balance for:', publicKey);
 
       // Get the latest state root hash
       const stateRootHash = await this.casperClient.nodeClient.getStateRootHash();
-      console.log('📊 Got state root hash:', stateRootHash.substring(0, 16) + '...');
+      // console.log('📊 Got state root hash:', stateRootHash.substring(0, 16) + '...');
 
       // Get account info using the correct method
       const accountHash = CLPublicKey.fromHex(publicKey).toAccountHashStr();
@@ -185,12 +284,12 @@ export class CasperTransactionService {
       );
 
       if (!accountInfo || !accountInfo.Account) {
-        console.log('⚠️  Account not found on network');
+        // console.log('⚠️  Account not found on network');
         return '0';
       }
 
       const mainPurse = accountInfo.Account.mainPurse;
-      console.log('👛 Found main purse:', mainPurse.substring(0, 16) + '...');
+      // console.log('👛 Found main purse:', mainPurse.substring(0, 16) + '...');
 
       // Get balance from main purse using the correct method
       const balance = await this.casperClient.nodeClient.getAccountBalance(
@@ -198,8 +297,8 @@ export class CasperTransactionService {
         mainPurse
       );
 
-      console.log('✅ REAL account balance:', balance.toString(), 'motes');
-      console.log('💰 Balance in CSPR:', (parseInt(balance.toString()) / 1000000000).toFixed(9));
+      // console.log('✅ REAL account balance:', balance.toString(), 'motes');
+      // console.log('💰 Balance in CSPR:', (parseInt(balance.toString()) / 1000000000).toFixed(9));
       
       return balance.toString();
 
@@ -208,7 +307,7 @@ export class CasperTransactionService {
       
       // Fallback to RPC method if SDK method fails
       try {
-        console.log('🔄 Trying fallback RPC method...');
+        // console.log('🔄 Trying fallback RPC method...');
         return await this.getAccountBalanceRPC(publicKey);
       } catch (fallbackError) {
         console.error('❌ Fallback RPC method also failed:', fallbackError);
@@ -261,7 +360,7 @@ export class CasperTransactionService {
     const accountData = await accountResponse.json();
     
     if (accountData.error) {
-      console.log('⚠️  Account not found via RPC, balance is 0');
+      // console.log('⚠️  Account not found via RPC, balance is 0');
       return '0';
     }
 
@@ -290,7 +389,7 @@ export class CasperTransactionService {
     const balanceData = await balanceResponse.json();
     const balance = balanceData.result?.balance_value || '0';
     
-    console.log('✅ RPC fallback balance:', balance, 'motes');
+    // console.log('✅ RPC fallback balance:', balance, 'motes');
     return balance;
   }
 

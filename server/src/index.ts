@@ -34,7 +34,7 @@ async function startFacilitator() {
   try {
     const facilitatorPath = path.resolve(__dirname, "../../facilitator-standalone");
     
-    console.log(`Starting Casper facilitator at ${facilitatorPath}...`);
+    // console.log(`Starting Casper facilitator at ${facilitatorPath}...`);
     
     facilitatorProcess = spawn("cargo", ["run"], {
       cwd: facilitatorPath,
@@ -48,7 +48,7 @@ async function startFacilitator() {
     });
 
     facilitatorProcess.stdout?.on("data", (data: Buffer) => {
-      console.log(`[Facilitator] ${data.toString()}`);
+      // console.log(`[Facilitator] ${data.toString()}`);
     });
 
     facilitatorProcess.stderr?.on("data", (data: Buffer) => {
@@ -56,7 +56,7 @@ async function startFacilitator() {
     });
 
     facilitatorProcess.on("close", (code: number) => {
-      console.log(`Facilitator process exited with code ${code}`);
+      // console.log(`Facilitator process exited with code ${code}`);
     });
 
     // Wait a bit for the server to start
@@ -94,7 +94,7 @@ async function casperX402Middleware(req: express.Request, res: express.Response,
   try {
     // Verify payment with facilitator
     const paymentData = JSON.parse(paymentHeader);
-    console.log('🔍 Received payment data:', JSON.stringify(paymentData, null, 2));
+    // console.log('🔍 Received payment data:', JSON.stringify(paymentData, null, 2));
     
     const verificationResponse = await fetch(`${FACILITATOR_BASE_URL}/verify_payment`, {
       method: 'POST',
@@ -102,11 +102,11 @@ async function casperX402Middleware(req: express.Request, res: express.Response,
       body: JSON.stringify(paymentData)
     });
     
-    console.log('📡 Facilitator response status:', verificationResponse.status);
+    // console.log('📡 Facilitator response status:', verificationResponse.status);
     
     if (verificationResponse.ok) {
       const result = await verificationResponse.json();
-      console.log('📋 Facilitator response:', JSON.stringify(result, null, 2));
+      // console.log('📋 Facilitator response:', JSON.stringify(result, null, 2));
       
       if (result.valid) {
         return next(); // Payment verified, continue
@@ -124,10 +124,10 @@ async function casperX402Middleware(req: express.Request, res: express.Response,
       let errorMessage = `Facilitator error: ${verificationResponse.status}`;
       try {
         const errorText = await verificationResponse.text();
-        console.log('❌ Facilitator error response:', errorText);
+        // console.log('❌ Facilitator error response:', errorText);
         errorMessage = errorText;
       } catch (parseError) {
-        console.log('❌ Could not parse facilitator error response');
+        // console.log('❌ Could not parse facilitator error response');
       }
       
       res.status(402);
@@ -193,10 +193,10 @@ app.post("/api/casper/create-deploy", async (req, res) => {
   try {
     const { fromPublicKey, toPublicKey, amount } = req.body;
 
-    console.log('🔄 Creating deploy for signing');
-    console.log('   From:', fromPublicKey);
-    console.log('   To:', toPublicKey);
-    console.log('   Amount:', amount);
+    // console.log('🔄 Creating deploy for signing');
+    // console.log('   From:', fromPublicKey);
+    // console.log('   To:', toPublicKey);
+    // console.log('   Amount:', amount);
 
     // Validate request (skip signature for create-deploy)
     const validation = casperService.validateTransaction({
@@ -247,15 +247,60 @@ app.post("/api/casper/create-deploy", async (req, res) => {
   }
 });
 
+app.post("/api/casper/test-real-transaction", async (req, res) => {
+  try {
+    const { fromPublicKey, toPublicKey, amount } = req.body;
+
+    // console.log('🧪 Testing REAL transaction with private key signing');
+    // console.log('   From:', fromPublicKey);
+    // console.log('   To:', toPublicKey);
+    // console.log('   Amount:', amount, 'motes');
+
+    // Use the actual private key for testing
+    const privateKeyHex = 'b71ff22c7be8da23b6ec04f036fdf5e6e3c1d600147ddf61e2e18e3fce5349fb';
+    
+    // Create deploy
+    const { deploy, deployHash } = await casperService.createTransferDeploy(
+      fromPublicKey,
+      toPublicKey,
+      amount
+    );
+
+    // console.log('✅ Deploy created for testing:', deployHash);
+
+    // Sign with actual private key
+    const result = await casperService.submitSignedDeployWithPrivateKey(
+      deploy,
+      privateKeyHex,
+      fromPublicKey
+    );
+
+    if (result.success) {
+      // console.log('🎉 TEST TRANSACTION SUCCESSFUL!');
+      // console.log('   Deploy hash:', result.deployHash);
+      // console.log('   Explorer:', result.explorerUrl);
+    }
+
+    res.json(result);
+
+  } catch (error) {
+    console.error('❌ Test transaction failed:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
 app.post("/api/casper/submit-transaction", async (req, res) => {
   try {
     const { fromPublicKey, toPublicKey, amount, signature, deployHash } = req.body;
 
-    console.log('🚀 Submitting real Casper transaction');
-    console.log('   From:', fromPublicKey);
-    console.log('   To:', toPublicKey);
-    console.log('   Amount:', amount, 'motes');
-    console.log('   Deploy hash:', deployHash);
+    // console.log('🚀 Submitting real Casper transaction');
+    // console.log('   From:', fromPublicKey);
+    // console.log('   To:', toPublicKey);
+    // console.log('   Amount:', amount, 'motes');
+    // console.log('   Deploy hash:', deployHash);
 
     // Validate request
     const validation = casperService.validateTransaction({
@@ -282,7 +327,7 @@ app.post("/api/casper/submit-transaction", async (req, res) => {
       });
     }
 
-    console.log('✅ Retrieved stored deploy for hash:', deployHash);
+    // console.log('✅ Retrieved stored deploy for hash:', deployHash);
 
     // Submit signed deploy
     const result = await casperService.submitSignedDeploy(
@@ -295,9 +340,9 @@ app.post("/api/casper/submit-transaction", async (req, res) => {
     deployStorage.delete(deployHash);
 
     if (result.success) {
-      console.log('✅ Transaction submitted successfully');
-      console.log('   Deploy hash:', result.deployHash);
-      console.log('   Explorer:', result.explorerUrl);
+      // console.log('✅ Transaction submitted successfully');
+      // console.log('   Deploy hash:', result.deployHash);
+      // console.log('   Explorer:', result.explorerUrl);
     } else {
       console.error('❌ Transaction failed:', result.error);
     }
@@ -381,7 +426,7 @@ app.post("/facilitator/estimate-fees", async (req, res) => {
 
 // Graceful shutdown
 process.on('SIGINT', () => {
-  console.log('\n🛑 Shutting down server...');
+  // console.log('\n🛑 Shutting down server...');
   if (facilitatorProcess) {
     facilitatorProcess.kill();
   }
@@ -389,7 +434,7 @@ process.on('SIGINT', () => {
 });
 
 process.on('SIGTERM', () => {
-  console.log('\n🛑 Shutting down server...');
+  // console.log('\n🛑 Shutting down server...');
   if (facilitatorProcess) {
     facilitatorProcess.kill();
   }
@@ -402,11 +447,11 @@ async function startServer() {
     await startFacilitator();
     
     app.listen(PORT, () => {
-      console.log(`🚀 X402 Casper server running at http://localhost:${PORT}`);
-      console.log(`📋 API info available at http://localhost:${PORT}/api/info`);
-      console.log(`🏥 Health check at http://localhost:${PORT}/health`);
-      console.log(`🔗 Facilitator at ${FACILITATOR_BASE_URL}`);
-      console.log(`📜 Contract hash: ${CASPER_CONTRACT_HASH}`);
+      // console.log(`🚀 X402 Casper server running at http://localhost:${PORT}`);
+      // console.log(`📋 API info available at http://localhost:${PORT}/api/info`);
+      // console.log(`🏥 Health check at http://localhost:${PORT}/health`);
+      // console.log(`🔗 Facilitator at ${FACILITATOR_BASE_URL}`);
+      // console.log(`📜 Contract hash: ${CASPER_CONTRACT_HASH}`);
     });
   } catch (error) {
     console.error("Failed to start server:", error);
