@@ -54,7 +54,7 @@ declare global {
 // Configuration
 const CASPER_CONFIG: CasperConfig = {
   payTo: process.env.CASPER_PAY_TO || '0202c9bda7c0da47cf0bbcd9972f8f40be72a81fa146df672c60595ca1807627403e',
-  amount: process.env.CASPER_AMOUNT || '1000000000', // 1 CSPR in motes
+  amount: process.env.CASPER_AMOUNT || '2500000000',
   facilitatorUrl: process.env.FACILITATOR_URL || 'http://localhost:8080',
   networkName: process.env.CASPER_NETWORK_NAME || 'casper-test',
   contractHash: process.env.CASPER_CONTRACT_HASH || '',
@@ -148,7 +148,7 @@ app.use(createCasperX402Middleware({
     } as RouteConfig,
     'GET /api/premium-data': {
       payTo: CASPER_CONFIG.payTo,
-      amount: '500000000', // 0.5 CSPR
+      amount: CASPER_CONFIG.amount,
       description: 'Access to premium data',
     } as RouteConfig,
   },

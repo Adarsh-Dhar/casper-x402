@@ -41,6 +41,13 @@ interface FacilitatorResponse {
   [key: string]: any;
 }
 
+const isHex = (value: string): boolean => /^[0-9a-fA-F]+$/.test(value);
+
+const isValidDeployHash = (value: string): boolean => value.length === 64 && isHex(value);
+
+const isValidPublicKeyHex = (value: string): boolean =>
+  (value.length === 66 || value.length === 68) && isHex(value);
+
 export const createCasperX402Middleware = (config: CasperX402Config): RequestHandler => {
   const {
     payTo,
@@ -112,7 +119,16 @@ export const createCasperX402Middleware = (config: CasperX402Config): RequestHan
         console.log('🔐 Verifying payment with facilitator...');
       }
 
-      const paymentData: PaymentData = JSON.parse(paymentHeader);
+      let paymentData: PaymentData;
+      try {
+        paymentData = JSON.parse(paymentHeader) as PaymentData;
+      } catch {
+        res.status(400).json({
+          error: 'Invalid payment header',
+          message: 'Payment proof must be valid JSON',
+        });
+        return;
+      }
       const { deploy_hash, sender } = paymentData;
 
       if (debug) {
@@ -125,6 +141,30 @@ export const createCasperX402Middleware = (config: CasperX402Config): RequestHan
         res.status(400).json({
           error: 'Invalid payment header',
           message: 'Missing deploy_hash or sender in payment proof',
+        });
+        return;
+      }
+
+      if (!isValidDeployHash(deploy_hash)) {
+        res.status(400).json({
+          error: 'Invalid payment header',
+          message: 'deploy_hash must be a 64-character hex string',
+        });
+        return;
+      }
+
+      if (!isValidPublicKeyHex(sender)) {
+        res.status(400).json({
+          error: 'Invalid payment header',
+          message: 'sender must be a valid Casper public key hex string',
+        });
+        return;
+      }
+
+      if (paymentData.network && paymentData.network !== networkName) {
+        res.status(400).json({
+          error: 'Invalid payment header',
+          message: `network must match ${networkName}`,
         });
         return;
       }

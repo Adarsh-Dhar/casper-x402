@@ -27,16 +27,131 @@ export function useCasperX402() {
   const [error, setError] = useState<string | null>(null);
   const [paymentData, setPaymentData] = useState<PaymentData | null>(null);
 
-  const nodeUrl = process.env.NEXT_PUBLIC_CASPER_NODE_URL || 'http://localhost:11101/rpc';
+  const nodeUrl = '/api/casper-rpc';
   const networkName = process.env.NEXT_PUBLIC_CASPER_NETWORK_NAME || 'casper-test';
 
-  // Utility functions
-  const csprToMotes = (cspr: number): string => {
-    return (cspr * 1_000_000_000).toString();
+  const payWithPemSigner = async (payTo: string, payAmount: string) => {
+    const response = await fetch('/api/submit-real-transaction', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ step: 'x402-pay', payTo, payAmount }),
+    });
+
+    const body = (await response.json()) as any;
+    if (!response.ok || !body?.success) {
+      const message = typeof body?.message === 'string' ? body.message : 'Failed to submit payment deploy';
+      throw new Error(message);
+    }
+
+    if (body?.senderPublicKey) console.log('Sender Public Key:', body.senderPublicKey);
+    if (body?.senderBalanceMotes) console.log('Sender Balance (motes):', body.senderBalanceMotes);
+    if (body?.senderBalanceMotes) console.log('Sender Balance (CSPR):', motesToCspr(body.senderBalanceMotes));
+    if (body?.requiredTotalMotes) console.log('Tx Required Total (motes):', body.requiredTotalMotes);
+    if (body?.requiredTotalMotes) console.log('Tx Required Total (CSPR):', motesToCspr(body.requiredTotalMotes));
+    if (body?.payAmount) console.log('Tx Transfer Amount (motes):', body.payAmount);
+    if (body?.paymentAmount) console.log('Tx Payment Amount (motes):', body.paymentAmount);
+
+    return body as {
+      deployHash: string;
+      senderPublicKey: string;
+    };
   };
 
-  const motesToCspr = (motes: string | number): number => {
+  function csprToMotes(cspr: number): string {
+    return (cspr * 1_000_000_000).toString();
+  }
+
+  function motesToCspr(motes: string | number): number {
     return Number(motes) / 1_000_000_000;
+  }
+
+  const toMotes = (value: string): bigint => {
+    try {
+      return BigInt(value);
+    } catch {
+      return BigInt(0);
+    }
+  };
+
+  const getAccountHash = (publicKey: PublicKey): string => {
+    const anyKey = publicKey as any;
+    if (typeof anyKey.accountHash === 'function') {
+      return anyKey.accountHash().toString();
+    }
+    if (anyKey.accountHash) {
+      return anyKey.accountHash.toString();
+    }
+    return '';
+  };
+
+  const rpc = async (method: string, params: unknown, id = 1): Promise<any> => {
+    const response = await fetch(nodeUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id,
+        jsonrpc: '2.0',
+        method,
+        params,
+      }),
+    });
+
+    const body = (await response.json()) as any;
+    if (body?.error) {
+      const message = typeof body.error?.message === 'string' ? body.error.message : 'RPC error';
+      throw new Error(message);
+    }
+    return body?.result;
+  };
+
+  const getAccountBalanceMotes = async (publicKeyHex: string): Promise<string> => {
+    const stateRoot = await rpc('chain_get_state_root_hash', {}, 1);
+    const stateRootHash = stateRoot?.state_root_hash;
+    if (!stateRootHash) return '0';
+
+    const accountInfo = await rpc('state_get_account_info', { public_key: publicKeyHex }, 2);
+    const mainPurse = accountInfo?.account?.main_purse;
+    if (!mainPurse) return '0';
+
+    const balanceResult = await rpc(
+      'state_get_balance',
+      { state_root_hash: stateRootHash, purse_uref: mainPurse },
+      3
+    );
+
+    return balanceResult?.balance_value ?? '0';
+  };
+
+  const ensureAccountExists = async (publicKeyHex: string): Promise<void> => {
+    const response = await fetch(nodeUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: 1,
+        jsonrpc: '2.0',
+        method: 'state_get_account_info',
+        params: { public_key: publicKeyHex },
+      }),
+    });
+
+    const body = (await response.json()) as any;
+    if (body?.error) {
+      const message = typeof body.error?.message === 'string' ? body.error.message : 'Account lookup failed';
+      if (message.toLowerCase().includes('no such account')) {
+        console.log('Sender Public Key:', publicKeyHex);
+        console.log('Sender Balance (motes): 0');
+        console.log('Sender Balance (CSPR): 0');
+        throw new Error(
+          `Sender account not found on ${networkName}. Fund this public key on testnet, then retry.`
+        );
+      }
+      throw new Error(message);
+    }
+
+    const balanceMotes = await getAccountBalanceMotes(publicKeyHex);
+    console.log('Sender Public Key:', publicKeyHex);
+    console.log('Sender Balance (motes):', balanceMotes);
+    console.log('Sender Balance (CSPR):', motesToCspr(balanceMotes));
   };
 
   const clearError = () => {
@@ -75,7 +190,7 @@ export function useCasperX402() {
       }
 
       const publicKeyHex = publicKey.toHex();
-      const accountHash = publicKey.accountHash.toString();
+      const accountHash = getAccountHash(publicKey);
 
       const keyPairInfo: KeyPairInfo = {
         publicKey: publicKeyHex,
@@ -109,6 +224,14 @@ export function useCasperX402() {
       console.log('Recipient:', recipientPublicKeyHex);
       console.log('Amount:', amount, 'motes');
 
+      const paymentAmount = '100000000';
+      const requiredMotes = toMotes(amount) + toMotes(paymentAmount);
+      console.log('Tx Payment Amount (motes):', paymentAmount);
+      console.log('Tx Required Total (motes):', requiredMotes.toString());
+      console.log('Tx Required Total (CSPR):', motesToCspr(requiredMotes.toString()));
+
+      await ensureAccountExists(keyPair.publicKey);
+
       // Load private key
       let privateKey: PrivateKey;
       try {
@@ -123,7 +246,7 @@ export function useCasperX402() {
         recipientPublicKeyHex: recipientPublicKeyHex,
         transferAmount: amount,
         chainName: networkName,
-        paymentAmount: '100000000', // 0.1 CSPR for native transfer
+        paymentAmount,
       });
 
       // Sign the deploy
@@ -151,8 +274,7 @@ export function useCasperX402() {
 
   // Fetch with x402 payment
   const fetchWithPayment = async (
-    url: string,
-    keyPair: KeyPairInfo
+    url: string
   ): Promise<Response> => {
     setLoading(true);
     setError(null);
@@ -188,8 +310,7 @@ export function useCasperX402() {
       console.log('- Recipient:', payTo);
       console.log('- Amount:', payAmount, 'motes');
 
-      // Create and send the transfer
-      const deployHash = await createSignedTransfer(keyPair, payTo, payAmount);
+      const { deployHash, senderPublicKey } = await payWithPemSigner(payTo, payAmount);
 
       // Store payment data
       const payment: PaymentData = {
@@ -203,7 +324,7 @@ export function useCasperX402() {
       // Create payment proof
       const paymentProof = JSON.stringify({
         deploy_hash: deployHash,
-        sender: keyPair.publicKey,
+        sender: senderPublicKey,
         network: networkName,
       });
 

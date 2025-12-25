@@ -1,6 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 
-const CASPER_RPC_URL = process.env.CASPER_NODE_URL || 'https://node.casper-test.casper.network/rpc';
+const sanitizeUrl = (value: string) =>
+  value
+    .trim()
+    .replace(/^`|`$/g, '')
+    .replace(/^"|"$/g, '')
+    .replace(/^'|'$/g, '');
+
+const CASPER_RPC_URL = sanitizeUrl(
+  process.env.CASPER_NODE_URL || 'https://node.casper-test.casper.network/rpc'
+);
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,19 +25,19 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify(body),
     });
 
-    if (!response.ok) {
-      throw new Error(`RPC request failed: ${response.status}`);
-    }
-
-    const data = await response.json();
-    
-    return NextResponse.json(data);
+    const responseBody = await response.arrayBuffer();
+    return new Response(responseBody, {
+      status: response.status,
+      headers: {
+        'content-type': response.headers.get('content-type') || 'application/json',
+      },
+    });
   } catch (error) {
     console.error('❌ Casper RPC proxy error:', error);
-    return NextResponse.json(
-      { 
-        error: 'RPC request failed', 
-        message: error instanceof Error ? error.message : 'Unknown error' 
+    return Response.json(
+      {
+        error: 'RPC request failed',
+        message: error instanceof Error ? error.message : 'Unknown error',
       },
       { status: 500 }
     );

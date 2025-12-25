@@ -1,67 +1,54 @@
-// workshop-code/pages/api/premium-content.ts
-// This file should be created if you want to use Next.js API routes as a proxy
+import { NextRequest } from 'next/server';
 
-import type { NextApiRequest, NextApiResponse } from 'next';
+const getServerUrl = () => process.env.SERVER_URL || 'http://localhost:4402';
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
-  // Get server URL from environment or use default
-  const SERVER_URL = process.env.SERVER_URL || 'http://localhost:4402';
-  
-  try {
-    console.log('\n🔄 Next.js API Proxy:');
-    console.log('   Method:', req.method);
-    console.log('   Target:', `${SERVER_URL}/api/premium-content`);
-    console.log('   Headers:', Object.keys(req.headers));
-    
-    // Forward relevant headers including X-Payment
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
-    
-    // Copy X-Payment header if present
-    if (req.headers['x-payment']) {
-      headers['x-payment'] = req.headers['x-payment'] as string;
-      console.log('   ✅ X-Payment header forwarded');
-    } else {
-      console.log('   ⚠️  No X-Payment header present');
-    }
+const buildProxyHeaders = (request: NextRequest): HeadersInit => {
+  const headers: Record<string, string> = {};
 
-    // Forward the request to Express server
-    const response = await fetch(`${SERVER_URL}/api/premium-content`, {
-      method: req.method || 'GET',
-      headers,
-    });
+  const xPayment = request.headers.get('x-payment');
+  if (xPayment) headers['x-payment'] = xPayment;
 
-    console.log('   Response status:', response.status);
+  const accept = request.headers.get('accept');
+  if (accept) headers.accept = accept;
 
-    // Forward response status
-    res.status(response.status);
+  return headers;
+};
 
-    // Forward all response headers (important for 402 responses)
-    response.headers.forEach((value, key) => {
-      res.setHeader(key, value);
-    });
+const filterResponseHeaders = (headers: Headers): Headers => {
+  const outgoing = new Headers();
+  headers.forEach((value, key) => {
+    const lower = key.toLowerCase();
+    if (lower === 'transfer-encoding' || lower === 'connection' || lower === 'keep-alive') return;
+    outgoing.set(key, value);
+  });
+  return outgoing;
+};
 
-    // Forward response body
-    const contentType = response.headers.get('content-type');
-    
-    if (contentType && contentType.includes('application/json')) {
-      const data = await response.json();
-      console.log('   Response:', data.error || data.message || 'Success');
-      res.json(data);
-    } else {
-      const text = await response.text();
-      res.send(text);
-    }
+export async function GET(request: NextRequest): Promise<Response> {
+  const serverUrl = getServerUrl();
+  const response = await fetch(`${serverUrl}/api/premium-content`, {
+    method: 'GET',
+    headers: buildProxyHeaders(request),
+    cache: 'no-store',
+  });
 
-  } catch (error) {
-    console.error('❌ Proxy error:', error);
-    res.status(500).json({
-      error: 'Proxy error',
-      message: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
+  return new Response(await response.arrayBuffer(), {
+    status: response.status,
+    headers: filterResponseHeaders(response.headers),
+  });
+}
+
+export async function POST(request: NextRequest): Promise<Response> {
+  const serverUrl = getServerUrl();
+  const response = await fetch(`${serverUrl}/api/premium-content`, {
+    method: 'POST',
+    headers: buildProxyHeaders(request),
+    body: await request.arrayBuffer(),
+    cache: 'no-store',
+  });
+
+  return new Response(await response.arrayBuffer(), {
+    status: response.status,
+    headers: filterResponseHeaders(response.headers),
+  });
 }

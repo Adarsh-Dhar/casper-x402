@@ -3,16 +3,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Button, Card, Typography, Space, Alert, Input, Descriptions } from 'antd';
-import { KeyPairInfo, useCasperX402 } from '@/hooks/useCasperX402';
+import { Button, Card, Typography, Space, Alert, Descriptions } from 'antd';
+import { useCasperX402 } from '@/hooks/useCasperX402';
 
 const { Title, Paragraph, Text } = Typography;
-const { TextArea } = Input;
 
 export default function Home() {
   const [content, setContent] = useState<string>('');
-  const [keyPair, setKeyPair] = useState<KeyPairInfo | null>(null);
-  const [privateKeyInput, setPrivateKeyInput] = useState<string>('');
   const [serverInfo, setServerInfo] = useState<any>(null);
   
   const { 
@@ -20,7 +17,6 @@ export default function Home() {
     error, 
     paymentData, 
     fetchWithPayment,
-    loadKeyPair, 
     clearError,
     csprToMotes,
     motesToCspr
@@ -43,29 +39,12 @@ export default function Home() {
     fetchServerInfo();
   }, []);
 
-  const handleLoadKeyPair = async () => {
-    try {
-      const loadedKeyPair = await loadKeyPair(privateKeyInput);
-      setKeyPair(loadedKeyPair);
-      clearError();
-    } catch (err) {
-      // Error is handled in the hook
-      console.error('Failed to load key pair:', err);
-    }
-  };
-
   const unlockContent = async () => {
-    if (!keyPair) {
-      return;
-    }
-
     clearError();
     setContent('');
 
     try {
-      // Use the loaded key pair to fetch premium content
-      // This will trigger the 402 flow, sign the tx with the private key, and retry
-      const response = await fetchWithPayment('/api/premium-content', keyPair);
+      const response = await fetchWithPayment('/api/premium-content');
 
       if (response.ok) {
         const data = await response.json();
@@ -104,44 +83,12 @@ export default function Home() {
         )}
 
         <div className="grid gap-6 lg:grid-cols-2">
-          <Card title="Private Key Setup" className="shadow-lg">
+          <Card title="Transaction Signer" className="shadow-lg">
              <Space direction="vertical" className="w-full">
                 <Paragraph>
-                  Enter your private key (hex format) to sign transactions.
-                  Supports both ED25519 and SECP256K1 key formats.
+                  Transactions are signed server-side using <Text strong>secret_key_1.pem</Text>.
                 </Paragraph>
-                <TextArea
-                  placeholder="Enter private key in hex format (64 characters, without 0x prefix)"
-                  value={privateKeyInput}
-                  onChange={(e) => setPrivateKeyInput(e.target.value)}
-                  rows={3}
-                />
-                <Button 
-                  type="primary" 
-                  onClick={handleLoadKeyPair}
-                  disabled={!privateKeyInput.trim()}
-                  loading={loading}
-                  className="w-full"
-                >
-                  Load Key Pair
-                </Button>
               </Space>
-            
-            {keyPair && (
-              <div className="mt-4">
-                <Alert
-                  message="Key Pair Loaded"
-                  description={
-                    <div>
-                      <div><strong>Public Key:</strong> {keyPair.publicKey}</div>
-                      <div><strong>Account Hash:</strong> {keyPair.accountHash}</div>
-                    </div>
-                  }
-                  type="success"
-                  showIcon
-                />
-              </div>
-            )}
           </Card>
 
           <Card title="Premium Content Access" className="shadow-lg">
@@ -155,14 +102,13 @@ export default function Home() {
                 size="large"
                 onClick={unlockContent}
                 loading={loading}
-                disabled={!keyPair}
                 className="w-full"
               >
                 {loading ? 'Processing Payment...' : 'Unlock Content (1 CSPR)'}
               </Button>
 
               {error && (
-                <Alert message="Error" description={error} type="error" showIcon />
+                <Alert title="Error" description={error} type="error" showIcon />
               )}
 
               {paymentData && (
