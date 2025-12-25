@@ -73,11 +73,13 @@ struct SupportedTokensResponse {
 #[derive(Debug, Deserialize)]
 struct PaymentVerificationRequest {
     deploy_hash: String,
-    public_key: String,
-    signature: String,
     amount: String,
     recipient: String,
-    timestamp: u64,
+    sender: Option<String>,
+    public_key: Option<String>,
+    signature: Option<String>,
+    network: Option<String>,
+    timestamp: Option<u64>,
 }
 
 #[derive(Debug, Serialize)]
@@ -85,6 +87,7 @@ struct PaymentVerificationResponse {
     valid: bool,
     message: String,
     transaction_hash: Option<String>,
+    timestamp: u64,
 }
 
 async fn health_handler() -> Result<impl warp::Reply, Infallible> {
@@ -170,11 +173,27 @@ async fn supported_tokens_handler() -> Result<impl warp::Reply, Infallible> {
 }
 
 async fn verify_payment_handler(request: PaymentVerificationRequest) -> Result<impl warp::Reply, Infallible> {
-    // For demo purposes, always return valid if basic fields are present
-    let valid = !request.deploy_hash.is_empty() 
-        && !request.public_key.is_empty() 
-        && !request.signature.is_empty()
+    let sender_ok = request
+        .sender
+        .as_deref()
+        .map(|s| !s.is_empty())
+        .unwrap_or(false);
+    let public_key_ok = request
+        .public_key
+        .as_deref()
+        .map(|s| !s.is_empty())
+        .unwrap_or(false);
+    let signature_ok = request
+        .signature
+        .as_deref()
+        .map(|s| !s.is_empty())
+        .unwrap_or(false);
+
+    let valid = !request.deploy_hash.is_empty()
+        && (sender_ok || (public_key_ok && signature_ok))
         && !request.amount.is_empty();
+
+    let now = request.timestamp.unwrap_or_else(|| chrono::Utc::now().timestamp() as u64);
 
     let response = PaymentVerificationResponse {
         valid,
@@ -188,6 +207,7 @@ async fn verify_payment_handler(request: PaymentVerificationRequest) -> Result<i
         } else { 
             None 
         },
+        timestamp: now,
     };
     Ok(warp::reply::json(&response))
 }

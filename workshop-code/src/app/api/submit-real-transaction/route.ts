@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 // Helper to strip whitespace
-const clean = (str: any) => (typeof str === 'string' ? str.trim().replace(/[\r\n\s]/g, '') : str);
+const clean = (str: unknown) => (typeof str === 'string' ? str.trim().replace(/[\r\n\s]/g, '') : str);
 
 export async function POST(request: NextRequest) {
   try {

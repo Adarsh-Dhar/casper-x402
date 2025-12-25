@@ -24,8 +24,8 @@ if [ ! -d "workshop-code" ]; then
     exit 1
 fi
 
-if [ ! -d "final-facilitator" ]; then
-    echo "❌ Final-facilitator directory not found!"
+if [ ! -d "facilitator-standalone" ]; then
+    echo "❌ Facilitator-standalone directory not found!"
     exit 1
 fi
 

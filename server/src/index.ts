@@ -1,462 +1,263 @@
-import express from "express";
-import cors from "cors";
-import { spawn, ChildProcess } from "child_process";
-import path from "path";
-import { fileURLToPath } from "url";
-import { CasperTransactionService } from "./casperService.js";
-import "dotenv/config";
+// server/index.ts or server/server.ts
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import express, { Request, Response, NextFunction, Application } from 'express';
+import cors from 'cors';
+import { createCasperX402Middleware } from './middleware/casperX402';
+import dotenv from 'dotenv';
+import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 
-const app = express();
-const PORT = process.env.PORT || 4402;
-const FACILITATOR_PORT = process.env.FACILITATOR_PORT || 8080;
-const CASPER_CONTRACT_HASH = process.env.CASPER_CONTRACT_HASH;
-const CASPER_PAY_TO = process.env.CASPER_PAY_TO;
-const CASPER_NODE_URL = process.env.CASPER_NODE_URL || 'https://node.casper-test.casper.network/rpc';
-const CASPER_NETWORK_NAME = process.env.CASPER_NETWORK_NAME || 'casper-test';
-const FACILITATOR_BASE_URL = `http://localhost:${FACILITATOR_PORT}`;
+dotenv.config();
 
-let facilitatorProcess: ChildProcess | null = null;
-
-// Initialize Casper transaction service
-const casperService = new CasperTransactionService(CASPER_NODE_URL, CASPER_NETWORK_NAME);
+const app: Application = express();
+const PORT: number = parseInt(process.env.PORT || '4402', 10);
 
 // Middleware
-app.use(express.json());
 app.use(cors({
-  origin: "http://localhost:3000",
-  exposedHeaders: ["X-PAYMENT-RESPONSE", "X-PAYMENT-REQUIRED"]
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  credentials: true,
+}));
+app.use(express.json());
+
+// Types
+interface CasperConfig {
+  payTo: string;
+  amount: string;
+  facilitatorUrl: string;
+  networkName: string;
+  contractHash: string;
+}
+
+interface PaymentInfo {
+  deploy_hash: string;
+  sender: string;
+  amount: string;
+  timestamp: number;
+}
+
+interface RouteConfig {
+  payTo: string;
+  amount: string;
+  description: string;
+}
+
+// Extend Express Request type to include payment info
+declare global {
+  namespace Express {
+    interface Request {
+      payment?: PaymentInfo;
+    }
+  }
+}
+
+// Configuration
+const CASPER_CONFIG: CasperConfig = {
+  payTo: process.env.CASPER_PAY_TO || '0202c9bda7c0da47cf0bbcd9972f8f40be72a81fa146df672c60595ca1807627403e',
+  amount: process.env.CASPER_AMOUNT || '1000000000', // 1 CSPR in motes
+  facilitatorUrl: process.env.FACILITATOR_URL || 'http://localhost:8080',
+  networkName: process.env.CASPER_NETWORK_NAME || 'casper-test',
+  contractHash: process.env.CASPER_CONTRACT_HASH || '',
+};
+
+const facilitatorPort = (() => {
+  try {
+    const url = new URL(CASPER_CONFIG.facilitatorUrl);
+    return url.port ? parseInt(url.port, 10) : 8080;
+  } catch {
+    return 8080;
+  }
+})();
+
+let facilitatorProcess: ChildProcessWithoutNullStreams | null = null;
+
+const isFacilitatorHealthy = async (): Promise<boolean> => {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 750);
+
+    const response = await fetch(`${CASPER_CONFIG.facilitatorUrl}/health`, {
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeout);
+    return response.ok;
+  } catch {
+    return false;
+  }
+};
+
+const startFacilitator = async (): Promise<void> => {
+  if (facilitatorProcess) return;
+  if (process.env.DISABLE_FACILITATOR_AUTOSTART === '1' || process.env.DISABLE_FACILITATOR_AUTOSTART === 'true') {
+    return;
+  }
+
+  const alreadyHealthy = await isFacilitatorHealthy();
+  if (alreadyHealthy) return;
+
+  const facilitatorStandaloneDir = resolve(process.cwd(), '../facilitator-standalone');
+  const prebuiltBinary = resolve(facilitatorStandaloneDir, 'target', 'debug', 'facilitator-server');
+
+  const env = {
+    ...process.env,
+    FACILITATOR_PORT: String(facilitatorPort),
+    CONTRACT_HASH: process.env.CASPER_CONTRACT_HASH || process.env.CONTRACT_HASH || '',
+    RUST_LOG: process.env.RUST_LOG || 'info',
+  };
+
+  const spawnArgs = existsSync(prebuiltBinary)
+    ? { cmd: prebuiltBinary, args: [] as string[] }
+    : { cmd: 'cargo', args: ['run'] };
+
+  facilitatorProcess = spawn(spawnArgs.cmd, spawnArgs.args, {
+    cwd: facilitatorStandaloneDir,
+    env,
+    stdio: 'pipe',
+  });
+
+  facilitatorProcess.stdout.pipe(process.stdout);
+  facilitatorProcess.stderr.pipe(process.stderr);
+
+  facilitatorProcess.on('exit', (code, signal) => {
+    facilitatorProcess = null;
+    console.error(`❌ Facilitator exited (code=${code}, signal=${signal})`);
+  });
+
+  const shutdown = () => {
+    if (!facilitatorProcess) return;
+    facilitatorProcess.kill('SIGTERM');
+    facilitatorProcess = null;
+  };
+
+  process.once('SIGINT', shutdown);
+  process.once('SIGTERM', shutdown);
+  process.once('exit', shutdown);
+};
+
+// Apply x402 middleware with route configuration
+app.use(createCasperX402Middleware({
+  ...CASPER_CONFIG,
+  debug: process.env.X402_DEBUG === 'true' || process.env.X402_DEBUG === '1',
+  routes: {
+    // Define protected routes
+    'GET /api/premium-content': {
+      payTo: CASPER_CONFIG.payTo,
+      amount: CASPER_CONFIG.amount,
+      description: 'Access to premium content',
+    } as RouteConfig,
+    'GET /api/premium-data': {
+      payTo: CASPER_CONFIG.payTo,
+      amount: '500000000', // 0.5 CSPR
+      description: 'Access to premium data',
+    } as RouteConfig,
+  },
 }));
 
-async function startFacilitator() {
-  try {
-    const facilitatorPath = path.resolve(__dirname, "../../facilitator-standalone");
-    
-    // console.log(`Starting Casper facilitator at ${facilitatorPath}...`);
-    
-    facilitatorProcess = spawn("cargo", ["run"], {
-      cwd: facilitatorPath,
-      stdio: ["pipe", "pipe", "pipe"],
-      env: {
-        ...process.env,
-        RUST_LOG: "info",
-        FACILITATOR_PORT: FACILITATOR_PORT.toString(),
-        CONTRACT_HASH: CASPER_CONTRACT_HASH
-      }
-    });
-
-    facilitatorProcess.stdout?.on("data", (data: Buffer) => {
-      // console.log(`[Facilitator] ${data.toString()}`);
-    });
-
-    facilitatorProcess.stderr?.on("data", (data: Buffer) => {
-      console.error(`[Facilitator Error] ${data.toString()}`);
-    });
-
-    facilitatorProcess.on("close", (code: number) => {
-      // console.log(`Facilitator process exited with code ${code}`);
-    });
-
-    // Wait a bit for the server to start
-    await new Promise(resolve => setTimeout(resolve, 3000));
-    
-  } catch (error) {
-    console.error("Failed to start facilitator:", error);
-  }
-}
-
-// Custom X402 middleware for Casper
-async function casperX402Middleware(req: express.Request, res: express.Response, next: express.NextFunction) {
-  const paymentHeader = req.headers['x-payment'] as string;
-  
-  if (!paymentHeader) {
-    // Payment required - return 402 with payment challenge
-    const paymentChallenge = {
-      network: "casper-test",
-      contract_hash: CASPER_CONTRACT_HASH,
-      pay_to: CASPER_PAY_TO,
-      amount: "2500000000", // 2.5 CSPR in motes (minimum transfer amount on Casper casper-test)
-      description: "Premium workshop content access",
-      facilitator_url: FACILITATOR_BASE_URL
-    };
-    
-    res.status(402);
-    res.setHeader('X-PAYMENT-REQUIRED', JSON.stringify(paymentChallenge));
-    return res.json({
-      error: "Payment Required",
-      message: "This endpoint requires payment to access",
-      payment_info: paymentChallenge
-    });
-  }
-  
-  try {
-    // Verify payment with facilitator
-    const paymentData = JSON.parse(paymentHeader);
-    // console.log('🔍 Received payment data:', JSON.stringify(paymentData, null, 2));
-    
-    const verificationResponse = await fetch(`${FACILITATOR_BASE_URL}/verify_payment`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(paymentData)
-    });
-    
-    // console.log('📡 Facilitator response status:', verificationResponse.status);
-    
-    if (verificationResponse.ok) {
-      const result = await verificationResponse.json();
-      // console.log('📋 Facilitator response:', JSON.stringify(result, null, 2));
-      
-      if (result.valid) {
-        return next(); // Payment verified, continue
-      }
-      
-      // Payment verification failed
-      res.status(402);
-      return res.json({
-        error: "Payment Verification Failed",
-        message: "The provided payment could not be verified",
-        details: result.message || "Unknown verification error"
-      });
-    } else {
-      // Facilitator returned an error
-      let errorMessage = `Facilitator error: ${verificationResponse.status}`;
-      try {
-        const errorText = await verificationResponse.text();
-        // console.log('❌ Facilitator error response:', errorText);
-        errorMessage = errorText;
-      } catch (parseError) {
-        // console.log('❌ Could not parse facilitator error response');
-      }
-      
-      res.status(402);
-      return res.json({
-        error: "Payment Verification Failed",
-        message: "The facilitator rejected the payment",
-        details: errorMessage
-      });
-    }
-    
-  } catch (error) {
-    console.error("Payment verification error:", error);
-    res.status(500);
-    return res.json({
-      error: "Payment Processing Error",
-      message: "Unable to process payment verification"
-    });
-  }
-}
-
-// Routes
-app.get("/health", (_req, res) => {
-  res.json({ 
-    status: "ok",
-    facilitator_url: FACILITATOR_BASE_URL,
-    contract_hash: CASPER_CONTRACT_HASH
-  });
+// Health check endpoint (not protected)
+app.get('/health', (req: Request, res: Response): void => {
+  console.log('✅ Health check endpoint hit');
+  res.status(200).send('OK');
 });
 
-app.get("/api/info", async (_req, res) => {
-  try {
-    const configResponse = await fetch(`${FACILITATOR_BASE_URL}/get_config`);
-    if (configResponse.ok) {
-      const config = await configResponse.json();
-      res.json({
-        server: "X402 Casper Workshop Server",
-        network: config.network,
-        contract_hash: config.contract_hash,
-        facilitator_url: FACILITATOR_BASE_URL,
-        supported_tokens: config.supported_tokens,
-        endpoints: {
-          premium_content: "/api/premium-content",
-          health: "/health",
-          info: "/api/info"
-        }
-      });
-    } else {
-      throw new Error("Facilitator not available");
-    }
-  } catch (error) {
-    res.status(500).json({
-      error: "Unable to fetch server info",
-      message: error instanceof Error ? error.message : "Unknown error"
-    });
-  }
-});
-
-// Temporary deploy storage (in production, use Redis or database)
-const deployStorage = new Map<string, any>();
-
-// Real Casper transaction endpoints
-app.post("/api/casper/create-deploy", async (req, res) => {
-  try {
-    const { fromPublicKey, toPublicKey, amount } = req.body;
-
-    // console.log('🔄 Creating deploy for signing');
-    // console.log('   From:', fromPublicKey);
-    // console.log('   To:', toPublicKey);
-    // console.log('   Amount:', amount);
-
-    // Validate request (skip signature for create-deploy)
-    const validation = casperService.validateTransaction({
-      fromPublicKey,
-      toPublicKey,
-      amount,
-      signature: '' // No signature needed for create-deploy
-    });
-
-    if (!validation.valid) {
-      return res.status(400).json({
-        success: false,
-        error: validation.error
-      });
-    }
-
-    // Create deploy
-    const { deploy, deployHash } = await casperService.createTransferDeploy(
-      fromPublicKey,
-      toPublicKey,
-      amount
-    );
-
-    // Store deploy temporarily for later use
-    deployStorage.set(deployHash, deploy);
-    
-    // Clean up old deploys (keep only last 100)
-    if (deployStorage.size > 100) {
-      const firstKey = deployStorage.keys().next().value;
-      if (firstKey) {
-        deployStorage.delete(firstKey);
-      }
-    }
-
-    res.json({
-      success: true,
-      deployHash,
-      deployJson: JSON.stringify(deploy), // Include deploy JSON for wallet signing
-      message: 'Deploy created successfully. Sign the deployHash with your wallet.'
-    });
-
-  } catch (error) {
-    console.error('❌ Error creating deploy:', error);
-    res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
-  }
-});
-
-app.post("/api/casper/test-real-transaction", async (req, res) => {
-  try {
-    const { fromPublicKey, toPublicKey, amount } = req.body;
-
-    // console.log('🧪 Testing REAL transaction with private key signing');
-    // console.log('   From:', fromPublicKey);
-    // console.log('   To:', toPublicKey);
-    // console.log('   Amount:', amount, 'motes');
-
-    // Use the actual private key for testing
-    const privateKeyHex = 'b71ff22c7be8da23b6ec04f036fdf5e6e3c1d600147ddf61e2e18e3fce5349fb';
-    
-    // Create deploy
-    const { deploy, deployHash } = await casperService.createTransferDeploy(
-      fromPublicKey,
-      toPublicKey,
-      amount
-    );
-
-    // console.log('✅ Deploy created for testing:', deployHash);
-
-    // Sign with actual private key
-    const result = await casperService.submitSignedDeployWithPrivateKey(
-      deploy,
-      privateKeyHex,
-      fromPublicKey
-    );
-
-    if (result.success) {
-      // console.log('🎉 TEST TRANSACTION SUCCESSFUL!');
-      // console.log('   Deploy hash:', result.deployHash);
-      // console.log('   Explorer:', result.explorerUrl);
-    }
-
-    res.json(result);
-
-  } catch (error) {
-    console.error('❌ Test transaction failed:', error);
-    res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
-  }
-});
-
-app.post("/api/casper/submit-transaction", async (req, res) => {
-  try {
-    const { fromPublicKey, toPublicKey, amount, signature, deployHash } = req.body;
-
-    // console.log('🚀 Submitting real Casper transaction');
-    // console.log('   From:', fromPublicKey);
-    // console.log('   To:', toPublicKey);
-    // console.log('   Amount:', amount, 'motes');
-    // console.log('   Deploy hash:', deployHash);
-
-    // Validate request
-    const validation = casperService.validateTransaction({
-      fromPublicKey,
-      toPublicKey,
-      amount,
-      signature
-    });
-
-    if (!validation.valid) {
-      return res.status(400).json({
-        success: false,
-        error: validation.error
-      });
-    }
-
-    // Retrieve the stored deploy
-    const deploy = deployStorage.get(deployHash);
-    
-    if (!deploy) {
-      return res.status(400).json({
-        success: false,
-        error: 'Deploy not found. Please create a new deploy first.'
-      });
-    }
-
-    // console.log('✅ Retrieved stored deploy for hash:', deployHash);
-
-    // Submit signed deploy
-    const result = await casperService.submitSignedDeploy(
-      deploy,
-      signature,
-      fromPublicKey
-    );
-
-    // Clean up the stored deploy after use
-    deployStorage.delete(deployHash);
-
-    if (result.success) {
-      // console.log('✅ Transaction submitted successfully');
-      // console.log('   Deploy hash:', result.deployHash);
-      // console.log('   Explorer:', result.explorerUrl);
-    } else {
-      console.error('❌ Transaction failed:', result.error);
-    }
-
-    res.json(result);
-
-  } catch (error) {
-    console.error('❌ Error submitting transaction:', error);
-    res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
-  }
-});
-
-app.get("/api/casper/balance/:publicKey", async (req, res) => {
-  try {
-    const { publicKey } = req.params;
-    const balance = await casperService.getAccountBalance(publicKey);
-    
-    res.json({
-      success: true,
-      publicKey,
-      balance,
-      balanceCSPR: (parseInt(balance) / 1000000000).toFixed(9)
-    });
-
-  } catch (error) {
-    console.error('❌ Error fetching balance:', error);
-    res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
-  }
-});
-
-// Protected endpoint with payment requirement
-app.get("/api/premium-content", casperX402Middleware, (_req, res) => {
+// Server info endpoint (not protected)
+app.get('/api/info', (req: Request, res: Response): void => {
   res.json({
-    message: "🎉 Welcome to premium content!",
-    content: "This is exclusive content that requires payment to access.",
-    redirect: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-    timestamp: new Date().toISOString()
+    network: CASPER_CONFIG.networkName,
+    contract_hash: CASPER_CONFIG.contractHash,
+    facilitator_url: CASPER_CONFIG.facilitatorUrl,
+    supported_tokens: ['CSPR'],
   });
 });
 
-// Facilitator proxy endpoints
-app.get("/facilitator/health", async (_req, res) => {
+// Protected endpoint: Premium content
+app.get('/api/premium-content', (req: Request, res: Response): void => {
+  // If we reach here, payment has been verified by middleware
+  console.log('✅ Serving premium content to:', req.payment?.sender);
+  
+  res.json({
+    message: '🎉 Premium Content Unlocked!',
+    content: `
+Welcome to the premium content area!
+
+This content is only accessible after successful payment verification.
+
+Payment Details:
+- Deploy Hash: ${req.payment?.deploy_hash}
+- Sender: ${req.payment?.sender}
+- Amount: ${req.payment?.amount} motes
+- Verified at: ${new Date(req.payment?.timestamp || 0).toISOString()}
+
+Thank you for your payment on Casper Network!
+    `.trim(),
+    data: {
+      premium: true,
+      timestamp: new Date().toISOString(),
+      payment: req.payment,
+    },
+  });
+});
+
+// Protected endpoint: Premium data
+app.get('/api/premium-data', (req: Request, res: Response): void => {
+  console.log('✅ Serving premium data to:', req.payment?.sender);
+  
+  res.json({
+    data: {
+      secret: 'This is secret premium data',
+      value: 42,
+      insights: ['Insight 1', 'Insight 2', 'Insight 3'],
+    },
+    payment: req.payment,
+  });
+});
+
+// Facilitator proxy endpoints (for monitoring/debugging)
+app.get('/facilitator/health', async (req: Request, res: Response): Promise<void> => {
   try {
-    const response = await fetch(`${FACILITATOR_BASE_URL}/health`);
+    const response = await fetch(`${CASPER_CONFIG.facilitatorUrl}/health`);
     const data = await response.json();
     res.json(data);
   } catch (error) {
-    res.status(503).json({ error: "Facilitator unavailable" });
-  }
-});
-
-app.get("/facilitator/supported-tokens", async (_req, res) => {
-  try {
-    const response = await fetch(`${FACILITATOR_BASE_URL}/get_supported_tokens`);
-    const data = await response.json();
-    res.json(data);
-  } catch (error) {
-    res.status(503).json({ error: "Facilitator unavailable" });
-  }
-});
-
-app.post("/facilitator/estimate-fees", async (req, res) => {
-  try {
-    const response = await fetch(`${FACILITATOR_BASE_URL}/estimate_tx_fees`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(req.body)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    res.status(500).json({
+      error: 'Facilitator health check failed',
+      message: errorMessage,
     });
-    const data = await response.json();
-    res.json(data);
-  } catch (error) {
-    res.status(503).json({ error: "Facilitator unavailable" });
   }
 });
 
-// Graceful shutdown
-process.on('SIGINT', () => {
-  // console.log('\n🛑 Shutting down server...');
-  if (facilitatorProcess) {
-    facilitatorProcess.kill();
-  }
-  process.exit(0);
+// Error handling middleware
+app.use((err: Error, req: Request, res: Response, next: NextFunction): void => {
+  console.error('❌ Server error:', err);
+  res.status(500).json({
+    error: 'Internal server error',
+    message: err.message,
+  });
 });
 
-process.on('SIGTERM', () => {
-  // console.log('\n🛑 Shutting down server...');
-  if (facilitatorProcess) {
-    facilitatorProcess.kill();
-  }
-  process.exit(0);
+// 404 handler
+app.use((req: Request, res: Response): void => {
+  res.status(404).json({
+    error: 'Not found',
+    message: `Route ${req.method} ${req.path} not found`,
+  });
 });
 
-async function startServer() {
-  try {
-    // Start facilitator first
-    await startFacilitator();
-    
-    app.listen(PORT, () => {
-      // console.log(`🚀 X402 Casper server running at http://localhost:${PORT}`);
-      // console.log(`📋 API info available at http://localhost:${PORT}/api/info`);
-      // console.log(`🏥 Health check at http://localhost:${PORT}/health`);
-      // console.log(`🔗 Facilitator at ${FACILITATOR_BASE_URL}`);
-      // console.log(`📜 Contract hash: ${CASPER_CONTRACT_HASH}`);
-    });
-  } catch (error) {
-    console.error("Failed to start server:", error);
-    process.exit(1);
-  }
-}
+// Start server
+app.listen(PORT, (): void => {
+  void startFacilitator();
+  console.log('🚀 Casper x402 Server Started');
+  console.log('================================');
+  console.log(`📡 Server running on: http://localhost:${PORT}`);
+  console.log(`🌐 Network: ${CASPER_CONFIG.networkName}`);
+  console.log(`💰 Recipient: ${CASPER_CONFIG.payTo}`);
+  console.log(`🔧 Facilitator: ${CASPER_CONFIG.facilitatorUrl}`);
+  console.log('================================');
+  console.log('Protected endpoints:');
+  console.log(`  - GET /api/premium-content (${CASPER_CONFIG.amount} motes)`);
+  console.log(`  - GET /api/premium-data (500000000 motes)`);
+  console.log('================================');
+});
 
-startServer();
+export default app;
