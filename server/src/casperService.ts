@@ -53,10 +53,10 @@ export class CasperTransactionService {
     amount: string
   ): Promise<{ deploy: DeployType; deployHash: string }> {
     try {
-      // console.log('🚀 Creating REAL Casper transfer deploy with SDK');
-      // console.log('   From:', fromPublicKey);
-      // console.log('   To:', toPublicKey);
-      // console.log('   Amount:', amount, 'motes');
+      console.log('🚀 Creating REAL Casper transfer deploy with SDK');
+      console.log('   From:', fromPublicKey);
+      console.log('   To:', toPublicKey);
+      console.log('   Amount:', amount, 'motes');
 
       // Create CLPublicKey objects
       const fromCLPublicKey = CLPublicKey.fromHex(fromPublicKey);
@@ -68,12 +68,8 @@ export class CasperTransactionService {
 
       // Create the deploy using the correct SDK method with proper timestamps
       const currentTime = Date.now();
-      const deployTimestamp = currentTime - 300000; // 5 minutes in the past
       const transferId = Math.floor(currentTime / 1000); // Use seconds since epoch for transfer ID
-      
-      // console.log('🕐 Deploy timestamp:', new Date(deployTimestamp).toISOString());
-      // console.log('🕐 Current time:', new Date(currentTime).toISOString());
-      // console.log('🆔 Transfer ID:', transferId);
+    
       
       const deploy = DeployUtil.makeDeploy(
         new DeployUtil.DeployParams(
@@ -81,8 +77,8 @@ export class CasperTransactionService {
           this.networkName,
           1, // gas price
           1800000, // ttl in milliseconds (30 minutes)
-          [], // dependencies
-          deployTimestamp // timestamp (5 minutes in the past)
+          undefined, // dependencies
+          Date.now() - 60000 // timestamp (5 minutes in the past)
         ),
         DeployUtil.ExecutableDeployItem.newTransfer(
           transferAmount,

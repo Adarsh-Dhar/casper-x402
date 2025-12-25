@@ -1,216 +1,312 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { 
+  HttpHandler, 
+  RpcClient, 
+  NativeTransferBuilder, 
   PrivateKey, 
-  KeyAlgorithm
+  KeyAlgorithm, 
+  PublicKey
 } from 'casper-js-sdk';
-import { ActiveAccountType } from '../types';
 
-export interface PaymentInfo {
-  network: string;
-  contract_hash: string;
-  pay_to: string;
-  amount: string;
-  description: string;
-  facilitator_url: string;
-}
+// Casper client configuration
+// Use the local API proxy when running in the browser to avoid CORS errors
+const CASPER_NODE_URL = typeof window !== 'undefined' 
+  ? '/api/casper-rpc' 
+  : (process.env.NEXT_PUBLIC_CASPER_NODE_URL || 'https://node.testnet.casper.network/rpc');
 
-export interface PaymentData {
-  deploy_hash: string;
-  public_key: string;
-  signature: string;
-  amount: string;
-  recipient: string;
-  timestamp: number;
-}
+const CASPER_NETWORK_NAME = process.env.NEXT_PUBLIC_CASPER_NETWORK_NAME || 'casper-test';
 
-export interface KeyPairInfo {
-  publicKey: string;
-  privateKey: string;
-  accountHash: string;
-  keyInstance?: PrivateKey;
-}
+export class CasperService {
+  private rpcClient: RpcClient;
+  private rpcHandler: HttpHandler;
 
-export class CasperPaymentClient {
-  private networkName: string;
-  private nodeUrl: string;
-
-  constructor(nodeUrl: string = 'https://node.testnet.casper.network/rpc', networkName: string = 'casper-test') {
-    this.networkName = networkName;
-    this.nodeUrl = nodeUrl;
+  constructor() {
+    this.rpcHandler = new HttpHandler(CASPER_NODE_URL);
+    this.rpcClient = new RpcClient(this.rpcHandler);
   }
 
   /**
-   * 1. Create Payment with Wallet
+   * Create a payment transaction using the user's private key from the frontend
+   * @param privateKeyHex - Private key provided by the user (as hex string)
+   * @param toAddress - Recipient address (public key hex)
+   * @param amountInMotes - Amount to transfer (in motes)
+   * @param keyAlgorithm - Key algorithm (default: ED25519)
+   * @returns Signed transaction
    */
-  async createPaymentDataWithWallet(
-    activeAccount: ActiveAccountType,
-    paymentInfo: PaymentInfo,
-    signMessage: (message: string, publicKey: string) => Promise<{ signature: string; cancelled: boolean }>
-  ): Promise<PaymentData> {
+  async createPaymentTransaction(
+    privateKeyHex: string,
+    toAddress: string,
+    amountInMotes: string,
+    keyAlgorithm: KeyAlgorithm = KeyAlgorithm.ED25519
+  ) {
     try {
-      const timestamp = Date.now();
-      const enableRealTx = process.env.NEXT_PUBLIC_ENABLE_REAL_TRANSACTIONS === 'true';
-      
-      if (!enableRealTx) throw new Error('Real transactions are disabled.');
-      
-      // Step 1: Create deploy
-      const createResponse = await fetch('/api/submit-real-transaction', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ step: 'create-deploy', activeAccount, paymentInfo })
-      });
-      
-      if (!createResponse.ok) throw new Error('Deploy creation failed');
-      const createResult = await createResponse.json();
-      
-      // Step 2: Sign
-      let signResult = await signMessage(createResult.deployHash, activeAccount.public_key);
-      if (signResult.cancelled || !signResult.signature) throw new Error('Signing failed');
+      // Parse the private key from the user input
+      // Remove any '0x' prefix if present
+      const cleanPrivateKey = privateKeyHex.startsWith('0x') 
+        ? privateKeyHex.slice(2) 
+        : privateKeyHex;
 
-      // Step 3: Submit
-      const submitResponse = await fetch('/api/submit-real-transaction', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          step: 'submit-transaction',
-          activeAccount,
-          paymentInfo,
-          signature: signResult.signature,
-          deployHash: createResult.deployHash
-        })
-      });
+      // Create PrivateKey from the provided hex string and algorithm
+      const privateKey = await PrivateKey.fromHex(cleanPrivateKey, keyAlgorithm);
       
-      if (!submitResponse.ok) throw new Error('Submission failed');
-      const result = await submitResponse.json();
-      
-      // Schedule balance refresh
-      setTimeout(async () => {
-        try {
-          const newBalance = await this.getAccountBalance(activeAccount.public_key);
-          if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('balanceUpdated', { 
-              detail: { balance: newBalance, publicKey: activeAccount.public_key } 
-            }));
-          }
-        } catch (e) { console.error(e); }
-      }, 45000);
-      
-      return {
-        deploy_hash: result.deployHash,
-        public_key: activeAccount.public_key,
-        signature: signResult.signature,
-        amount: paymentInfo.amount,
-        recipient: paymentInfo.pay_to,
-        timestamp: Math.floor(timestamp / 1000)
-      };
-      
+      // Get the public key from the private key
+      const fromPublicKey = privateKey.publicKey;
+
+      // Parse the recipient's public key
+      const toPublicKey = PublicKey.fromHex(toAddress);
+
+      // Create the native transfer using builder pattern
+      // Standard fee for native transfer is 100,000,000 motes (0.1 CSPR)
+      const STANDARD_PAYMENT_AMOUNT = 100_000_000;
+
+      const transaction = new NativeTransferBuilder()
+        .from(fromPublicKey)
+        .target(toPublicKey)
+        .amount(amountInMotes)
+        .payment(STANDARD_PAYMENT_AMOUNT) // Required: Transaction fee
+        .id(Date.now()) // Required: Transfer ID (memo)
+        .chainName(CASPER_NETWORK_NAME)
+        .build();
+
+      // Sign the transaction with the user's private key
+      transaction.sign(privateKey);
+
+      return transaction;
     } catch (error) {
-      console.error('Error creating payment:', error);
-      throw error;
+      console.error('Error creating payment transaction:', error);
+      throw new Error(`Failed to create payment transaction: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
   /**
-   * 2. Get Balance
+   * Send transaction to the network
+   * @param transaction - Signed transaction
+   * @returns Transaction hash
    */
-  async getAccountBalance(publicKey: string): Promise<string> {
+  async sendTransaction(transaction: any): Promise<string> {
     try {
-      const stateResponse = await fetch('/api/casper-rpc', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: 1, jsonrpc: '2.0', method: 'chain_get_state_root_hash', params: {} })
-      });
-      const stateData = await stateResponse.json();
-      const stateRootHash = stateData.result?.state_root_hash;
-      if (!stateRootHash) return '0';
+      // Use the SDK's deploy method which handles serialization correctly
+      // This calls account_put_deploy internally and returns the hash
+      const deployResult = await this.rpcClient.waitForDeploy(transaction);
       
-      const accountResponse = await fetch('/api/casper-rpc', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: 2, jsonrpc: '2.0', method: 'state_get_account_info', params: { public_key: publicKey } })
-      });
-      const accountData = await accountResponse.json();
-      const mainPurse = accountData.result?.account?.main_purse;
-      if (!mainPurse) return '0';
-      
-      const balanceResponse = await fetch('/api/casper-rpc', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          id: 3, 
-          jsonrpc: '2.0', 
-          method: 'state_get_balance', 
-          params: { state_root_hash: stateRootHash, purse_uref: mainPurse } 
-        })
-      });
-      const balanceData = await balanceResponse.json();
-      return balanceData.result?.balance_value || '0';
-    } catch (error) {
-      return '0';
-    }
-  }
-
-  /**
-   * 3. Generate Keys (Async for v5)
-   */
-  async generateKeyPair(): Promise<KeyPairInfo> {
-    const privateKey = await PrivateKey.generate(KeyAlgorithm.ED25519);
-    return {
-      publicKey: privateKey.publicKey.toHex(),
-      privateKey: "HIDDEN_IN_V5", 
-      accountHash: privateKey.publicKey.accountHash().toPrefixedString(),
-      keyInstance: privateKey
-    };
-  }
-
-  /**
-   * 4. Load Keys (Async for v5)
-   */
-  async loadKeyPairFromHex(privateKeyHex: string): Promise<KeyPairInfo> {
-    let cleanHex = privateKeyHex.trim();
-    if (cleanHex.startsWith('0x')) cleanHex = cleanHex.slice(2);
-    cleanHex = cleanHex.replace(/[^0-9a-fA-F]/g, '');
-
-    let privateKey: PrivateKey;
-
-    try {
-      // Try Secp256k1 (This is what you need for your key)
-      privateKey = await PrivateKey.fromHex(cleanHex, KeyAlgorithm.SECP256K1);
-    } catch (e) {
-      try {
-        // Fallback to Ed25519
-        privateKey = await PrivateKey.fromHex(cleanHex, KeyAlgorithm.ED25519);
-      } catch (e2) {
-        throw new Error('Invalid private key format');
+      // Check for deploy_hash in the result
+      if (deployResult && deployResult.deploy.hash) {
+        return deployResult.deploy.hash.toString();
       }
+      
+      throw new Error("No deploy hash returned from deploy operation");
+    } catch (error) {
+      console.error('Error sending transaction:', error);
+      throw new Error(`Failed to send transaction: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-
-    return {
-      publicKey: privateKey.publicKey.toHex(),
-      privateKey: cleanHex,
-      accountHash: privateKey.publicKey.accountHash().toPrefixedString(),
-      keyInstance: privateKey
-    };
   }
 
   /**
-   * 5. Manual Payment Data
+   * Get transaction status
+   * @param transactionHash - Transaction hash to check
+   * @returns Transaction info
    */
-  async createPaymentData(
-    keyPairInfo: KeyPairInfo,
-    paymentInfo: PaymentInfo
-  ): Promise<PaymentData> {
-    const deployHash = Array.from(crypto.getRandomValues(new Uint8Array(32)))
-      .map(b => b.toString(16).padStart(2, '0')).join('');
-    const signature = Array.from(crypto.getRandomValues(new Uint8Array(64)))
-      .map(b => b.toString(16).padStart(2, '0')).join('');
+  async getTransactionStatus(transactionHash: string): Promise<any> {
+    try {
+      const deployResult = await this.rpcClient.getDeploy(transactionHash);
+      return deployResult;
+    } catch (error) {
+      console.error('Error getting transaction status:', error);
+      throw new Error(`Failed to get transaction status: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Wait for transaction to be executed
+   * @param transactionHash - Transaction hash to wait for
+   * @param timeout - Timeout in milliseconds (default: 5 minutes)
+   * @returns Transaction execution result
+   */
+  async waitForTransaction(transactionHash: string, timeout: number = 300000): Promise<any> {
+    const startTime = Date.now();
+    const pollInterval = 2000; // Poll every 2 seconds
+
+    while (Date.now() - startTime < timeout) {
+      try {
+        const result = await this.rpcClient.getDeploy(transactionHash);
+        
+        if (result) {
+          const executionResult = result.executionResultsV1
+          
+          if (executionResult) {
+            return { success: true, result: true };
+          } else if (executionResult) {
+            return { success: false, error: "error" };
+          }
+        }
+      } catch (error) {
+        // Transaction might not be available yet, continue polling
+        console.log('Waiting for transaction execution...');
+      }
+
+      // Wait before next poll
+      await new Promise(resolve => setTimeout(resolve, pollInterval));
+    }
+
+    throw new Error('Transaction execution timeout');
+  }
+
+  /**
+   * Create payment from user's private key and send it
+   * @param privateKeyHex - User's private key (hex string)
+   * @param toAddress - Recipient address (public key hex)
+   * @param amountInMotes - Amount in motes
+   * @param keyAlgorithm - Key algorithm (ED25519 or SECP256K1)
+   * @returns Transaction hash and signed transaction
+   */
+  async createAndSendPayment(
+    privateKeyHex: string,
+    toAddress: string,
+    amountInMotes: string,
+    keyAlgorithm: KeyAlgorithm = KeyAlgorithm.ED25519
+  ): Promise<{ transactionHash: string; transaction: any }> {
+    // Create the payment transaction using user's private key
+    const transaction = await this.createPaymentTransaction(
+      privateKeyHex, 
+      toAddress, 
+      amountInMotes,
+      keyAlgorithm
+    );
     
-    return {
-      deploy_hash: deployHash,
-      public_key: keyPairInfo.publicKey,
-      signature: signature,
-      amount: paymentInfo.amount,
-      recipient: paymentInfo.pay_to,
-      timestamp: Date.now()
-    };
+    // Send the transaction to the network
+    const transactionHash = await this.sendTransaction(transaction);
+
+    return { transactionHash, transaction };
+  }
+
+  /**
+   * Detect key algorithm from public key prefix
+   * @param publicKeyHex - Public key hex string
+   * @returns KeyAlgorithm
+   */
+  detectKeyAlgorithm(publicKeyHex: string): KeyAlgorithm {
+    const cleanKey = publicKeyHex.startsWith('0x') ? publicKeyHex.slice(2) : publicKeyHex;
+    
+    // Casper public keys have a prefix byte:
+    // 01 = Ed25519
+    // 02 = Secp256K1
+    const prefix = cleanKey.substring(0, 2);
+    
+    if (prefix === '01') {
+      return KeyAlgorithm.ED25519;
+    } else if (prefix === '02') {
+      return KeyAlgorithm.SECP256K1;
+    }
+    
+    // Default to Ed25519 if unable to detect
+    return KeyAlgorithm.ED25519;
+  }
+
+  /**
+   * Get public key from private key
+   * @param privateKeyHex - Private key hex string
+   * @param keyAlgorithm - Key algorithm
+   * @returns Public key hex string
+   */
+  async getPublicKeyFromPrivate(
+    privateKeyHex: string,
+    keyAlgorithm: KeyAlgorithm = KeyAlgorithm.ED25519
+  ): Promise<string> {
+    try {
+      const cleanPrivateKey = privateKeyHex.startsWith('0x') 
+        ? privateKeyHex.slice(2) 
+        : privateKeyHex;
+
+      const privateKey = await PrivateKey.fromHex(cleanPrivateKey, keyAlgorithm);
+      const publicKey = privateKey.publicKey;
+      
+      return publicKey.toHex();
+    } catch (error) {
+      console.error('Error getting public key:', error);
+      throw new Error(`Failed to get public key: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Validate private key format
+   * @param privateKeyHex - Private key to validate
+   * @param keyAlgorithm - Expected key algorithm
+   * @returns true if valid, throws error if invalid
+   */
+  async validatePrivateKey(
+    privateKeyHex: string,
+    keyAlgorithm: KeyAlgorithm = KeyAlgorithm.ED25519
+  ): Promise<boolean> {
+    try {
+      const cleanPrivateKey = privateKeyHex.startsWith('0x') 
+        ? privateKeyHex.slice(2) 
+        : privateKeyHex;
+
+      // Try to create a PrivateKey object - will throw if invalid
+      await PrivateKey.fromHex(cleanPrivateKey, keyAlgorithm);
+      
+      return true;
+    } catch (error) {
+      throw new Error(`Invalid private key: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Convert CSPR to motes
+   * @param cspr - Amount in CSPR
+   * @returns Amount in motes (string)
+   */
+  csprToMotes(cspr: number | string): string {
+    const csprValue = typeof cspr === 'string' ? parseFloat(cspr) : cspr;
+    const motes = csprValue * 1_000_000_000;
+    return Math.floor(motes).toString();
+  }
+
+  /**
+   * Convert motes to CSPR
+   * @param motes - Amount in motes
+   * @returns Amount in CSPR (number)
+   */
+  motesToCspr(motes: string | number): number {
+    const motesValue = typeof motes === 'string' ? parseFloat(motes) : motes;
+    return motesValue / 1_000_000_000;
   }
 }
+
+// Export a singleton instance
+export const casperService = new CasperService();
+
+// Export helper functions for use in components
+export const createPayment = async (
+  privateKeyHex: string,
+  toAddress: string,
+  amountInMotes: string,
+  keyAlgorithm: KeyAlgorithm = KeyAlgorithm.ED25519
+) => {
+  return casperService.createAndSendPayment(privateKeyHex, toAddress, amountInMotes, keyAlgorithm);
+};
+
+export const checkPaymentStatus = async (transactionHash: string) => {
+  return casperService.getTransactionStatus(transactionHash);
+};
+
+export const waitForPaymentConfirmation = async (transactionHash: string) => {
+  return casperService.waitForTransaction(transactionHash);
+};
+
+export const getPublicKey = async (
+  privateKeyHex: string,
+  keyAlgorithm: KeyAlgorithm = KeyAlgorithm.ED25519
+) => {
+  return casperService.getPublicKeyFromPrivate(privateKeyHex, keyAlgorithm);
+};
+
+export const validatePrivateKey = async (
+  privateKeyHex: string,
+  keyAlgorithm: KeyAlgorithm = KeyAlgorithm.ED25519
+) => {
+  return casperService.validatePrivateKey(privateKeyHex, keyAlgorithm);
+};
+
+// Export KeyAlgorithm for use in components
+export { KeyAlgorithm };
