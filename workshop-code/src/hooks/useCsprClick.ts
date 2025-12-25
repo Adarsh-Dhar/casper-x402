@@ -91,9 +91,9 @@ const useCsprClick = () => {
         }
       }
 
-      // console.log('No existing wallet connections found, using user\'s actual testnet account');
+      // console.log('No existing wallet connections found, using user\'s actual casper-test account');
       
-      // Use the user's actual testnet account
+      // Use the user's actual casper-test account
       const userActualAccount: ActiveAccountType = {
         public_key: '0202c9bda7c0da47cf0bbcd9972f8f40be72a81fa146df672c60595ca1807627403e',
         account_hash: 'account-hash-8ef424a9a53a1a6547b2130dffad569d3a639944d21946ec0f831196510fa765',
@@ -101,7 +101,7 @@ const useCsprClick = () => {
       };
       
       setActiveAccount(userActualAccount);
-      // console.log('✅ User\'s actual testnet account loaded');
+      // console.log('✅ User\'s actual casper-test account loaded');
       // console.log('   Public Key:', userActualAccount.public_key);
       // console.log('   Expected Balance: 5,000 CSPR');
     } catch (error) {
@@ -210,7 +210,7 @@ const useCsprClick = () => {
       }
       
       // Fallback: Use the user's actual public key for testing
-      // console.log('No real wallet detected, using user\'s actual testnet account...');
+      // console.log('No real wallet detected, using user\'s actual casper-test account...');
       const userActualAccount: ActiveAccountType = {
         public_key: '0202c9bda7c0da47cf0bbcd9972f8f40be72a81fa146df672c60595ca1807627403e',
         account_hash: 'account-hash-8ef424a9a53a1a6547b2130dffad569d3a639944d21946ec0f831196510fa765',
@@ -220,7 +220,7 @@ const useCsprClick = () => {
       // Add realistic delay to simulate wallet interaction
       setTimeout(() => {
         setActiveAccount(userActualAccount);
-        // console.log('✅ User\'s actual testnet account connected successfully');
+        // console.log('✅ User\'s actual casper-test account connected successfully');
         // console.log('   Public Key:', userActualAccount.public_key);
         // console.log('   Expected Balance: 5,000 CSPR');
       }, 1000);

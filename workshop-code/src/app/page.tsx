@@ -190,7 +190,7 @@ export default function Home() {
                   </Descriptions>
                   <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded">
                     <Text className="text-yellow-800 text-sm">
-                      ⏳ <strong>Transaction submitted to Casper testnet!</strong><br/>
+                      ⏳ <strong>Transaction submitted to Casper casper-test!</strong><br/>
                       Balance will update automatically after blockchain confirmation (30-60 seconds).
                     </Text>
                   </div>
@@ -232,7 +232,7 @@ export default function Home() {
                 <li><strong>Frontend:</strong> Next.js with Casper JS SDK v5</li>
                 <li><strong>Server:</strong> Express.js with x402 middleware</li>
                 <li><strong>Facilitator:</strong> Rust-based Casper facilitator</li>
-                <li><strong>Blockchain:</strong> Casper Testnet</li>
+                <li><strong>Blockchain:</strong> Casper casper-test</li>
                 <li><strong>Protocol:</strong> HTTP 402 Payment Required</li>
                 <li><strong>Cryptography:</strong> ED25519 & SECP256K1 signatures</li>
               </ul>

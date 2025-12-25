@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const CASPER_RPC_URL = process.env.CASPER_NODE_URL || 'https://node.testnet.casper.network/rpc';
+const CASPER_RPC_URL = process.env.CASPER_NODE_URL || 'https://node.casper-test.casper.network/rpc';
 
 export async function POST(request: NextRequest) {
   try {

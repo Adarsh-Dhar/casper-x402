@@ -268,7 +268,7 @@ This implementation plan converts the Odra Vault Facilitator design into a serie
     - _Requirements: Deployment targets_
 
   - [ ] 15.2 Create deployment scripts
-    - Create deployment script for testnet
+    - Create deployment script for casper-test
     - Create deployment script for mainnet
     - Add proper gas estimation and configuration
     - Add deployment verification steps

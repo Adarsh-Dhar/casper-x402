@@ -2,14 +2,14 @@
 
 ## Introduction
 
-This document specifies the requirements for a Nuclear Contract Deployment Fix workflow that resolves persistent "Missing Argument" errors when deploying Casper smart contracts using the Odra framework. The system will provide a comprehensive clean-build-test-deploy pipeline that eliminates stale WASM artifacts and ensures successful contract deployment to the Casper testnet.
+This document specifies the requirements for a Nuclear Contract Deployment Fix workflow that resolves persistent "Missing Argument" errors when deploying Casper smart contracts using the Odra framework. The system will provide a comprehensive clean-build-test-deploy pipeline that eliminates stale WASM artifacts and ensures successful contract deployment to the Casper casper-test.
 
 ## Glossary
 
 - **Nuclear_Deployment_System**: The complete workflow that performs clean builds, verification tests, and automated deployment
 - **Odra_Framework**: The Rust framework used for building Casper smart contracts
 - **WASM_Artifact**: The WebAssembly binary file generated from Rust contract code
-- **Casper_Testnet**: The test network for the Casper blockchain
+- **Casper_casper-test**: The test network for the Casper blockchain
 - **Deploy_Hash**: A unique identifier for a blockchain transaction on Casper
 - **Missing_Argument_Error**: The "User error: 64658" that occurs when deploying contracts with mismatched argument expectations
 - **Stale_Binary**: An outdated WASM file that contains old contract initialization logic
@@ -77,11 +77,11 @@ This document specifies the requirements for a Nuclear Contract Deployment Fix w
 
 ### Requirement 6
 
-**User Story:** As a contract developer, I want to submit deployment transactions to the Casper testnet with proper authentication, so that my contract can be deployed to the blockchain.
+**User Story:** As a contract developer, I want to submit deployment transactions to the Casper casper-test with proper authentication, so that my contract can be deployed to the blockchain.
 
 #### Acceptance Criteria
 
-1. WHEN submitting to the network, THEN the Nuclear_Deployment_System SHALL send the signed deploy JSON to https://node.testnet.cspr.cloud/rpc
+1. WHEN submitting to the network, THEN the Nuclear_Deployment_System SHALL send the signed deploy JSON to https://node.casper-test.cspr.cloud/rpc
 2. WHEN making network requests, THEN the Nuclear_Deployment_System SHALL use the API key 019b2b7d-e2ba-752e-a21d-81383b1fd6fe in the request headers
 3. WHEN handling SSL on macOS, THEN the Nuclear_Deployment_System SHALL use ssl.CERT_NONE context to avoid certificate verification issues
 4. WHEN the network request succeeds, THEN the Nuclear_Deployment_System SHALL return the deploy hash for transaction tracking

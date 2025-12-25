@@ -68,7 +68,7 @@
     - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5_
 
 - [ ] 4. Create environment configuration
-  - [x] 4.1 Generate .env file with Casper testnet configuration
+  - [x] 4.1 Generate .env file with Casper casper-test configuration
     - Create .env file in project root if it doesn't exist
     - Set ODRA_CASPER_NODE_ADDRESS to "http://65.21.227.180:7777"
     - Set ODRA_CASPER_CHAIN_NAME to "casper-test"
@@ -99,7 +99,7 @@
 
 - [ ] 6. Implement deployment execution and error handling
   - [x] 6.1 Add network connectivity verification
-    - Verify connection to configured Casper testnet endpoint
+    - Verify connection to configured Casper casper-test endpoint
     - Handle network connectivity issues with clear error messages
     - _Requirements: 6.3, 8.3_
 

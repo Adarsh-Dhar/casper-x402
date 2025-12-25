@@ -35,7 +35,7 @@ export class CasperPaymentClient {
   private networkName: string;
   private nodeUrl: string;
 
-  constructor(nodeUrl: string = 'https://node.testnet.casper.network/rpc', networkName: string = 'casper-test') {
+  constructor(nodeUrl: string = 'https://node.casper-test.casper.network/rpc', networkName: string = 'casper-test') {
     this.networkName = networkName;
     this.nodeUrl = nodeUrl;
   }

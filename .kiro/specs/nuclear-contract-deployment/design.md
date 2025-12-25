@@ -108,13 +108,13 @@ def generate_deploy(wasm_path: str) -> DeployResult:
 - Outputs deploy JSON to `deploy_final.json`
 
 ### 5. Network Submission Module
-**Purpose**: Submits deployment to Casper testnet with retry logic
+**Purpose**: Submits deployment to Casper casper-test with retry logic
 
 **Interface**:
 ```python
 def submit_deploy(deploy_json: str) -> SubmissionResult:
     """
-    Submits deploy to testnet with retry logic
+    Submits deploy to casper-test with retry logic
     Returns: SubmissionResult with deploy hash or error
     """
 ```
@@ -169,7 +169,7 @@ class SubmissionResult:
 @dataclass
 class DeploymentConfig:
     network: str = "casper-test"
-    rpc_url: str = "https://node.testnet.cspr.cloud/rpc"
+    rpc_url: str = "https://node.casper-test.cspr.cloud/rpc"
     api_key: str = "019b2b7d-e2ba-752e-a21d-81383b1fd6fe"
     private_key_path: str = "keys/secret_key.pem"
     max_retries: int = 3
@@ -272,7 +272,7 @@ Property tests verify universal behaviors using the Hypothesis library for Pytho
 
 ### Integration Testing
 - End-to-end workflow testing with real Odra projects
-- Network integration testing with Casper testnet
+- Network integration testing with Casper casper-test
 - Cross-platform testing (macOS, Linux, Windows)
 - Performance testing for large contract builds
 

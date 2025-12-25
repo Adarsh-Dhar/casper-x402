@@ -108,7 +108,7 @@
 
 - [ ] 7. Implement network submission module
   - [x] 7.1 Create network submission function
-    - Send deploy JSON to Casper testnet RPC endpoint
+    - Send deploy JSON to Casper casper-test RPC endpoint
     - Include API key authentication in headers
     - Configure SSL context for macOS compatibility
     - _Requirements: 6.1, 6.2, 6.3_

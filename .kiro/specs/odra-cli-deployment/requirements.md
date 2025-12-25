@@ -2,7 +2,7 @@
 
 ## Introduction
 
-This document specifies the requirements for implementing an Odra CLI-based deployment system for the Flipper smart contract. The system will follow the Odra CLI pattern as demonstrated in the DogContract example, providing a streamlined Rust-native approach to deploy contracts to the Casper testnet using the odra-cli framework.
+This document specifies the requirements for implementing an Odra CLI-based deployment system for the Flipper smart contract. The system will follow the Odra CLI pattern as demonstrated in the DogContract example, providing a streamlined Rust-native approach to deploy contracts to the Casper casper-test using the odra-cli framework.
 
 ## Glossary
 
@@ -10,7 +10,7 @@ This document specifies the requirements for implementing an Odra CLI-based depl
 - **Flipper_Contract**: The smart contract module that stores and manipulates a boolean value
 - **DeployScript**: A trait implementation that defines contract deployment logic
 - **FlipperInitArgs**: The initialization arguments structure for the Flipper contract
-- **Casper_Testnet**: The test network for the Casper blockchain where contracts are deployed
+- **Casper_casper-test**: The test network for the Casper blockchain where contracts are deployed
 - **Container**: The deployment container that manages contract instances and prevents duplicate deployments
 - **Gas_Limit**: The maximum computational units allocated for contract deployment (350 CSPR)
 - **Environment_Configuration**: The .env file containing network endpoints and authentication keys
@@ -65,7 +65,7 @@ This document specifies the requirements for implementing an Odra CLI-based depl
 
 ### Requirement 5
 
-**User Story:** As a contract developer, I want to configure environment variables for Casper testnet deployment, so that the CLI can connect to the correct network with proper authentication.
+**User Story:** As a contract developer, I want to configure environment variables for Casper casper-test deployment, so that the CLI can connect to the correct network with proper authentication.
 
 #### Acceptance Criteria
 
@@ -77,13 +77,13 @@ This document specifies the requirements for implementing an Odra CLI-based depl
 
 ### Requirement 6
 
-**User Story:** As a contract developer, I want to execute the deployment command, so that I can deploy my Flipper contract to the Casper testnet through the CLI interface.
+**User Story:** As a contract developer, I want to execute the deployment command, so that I can deploy my Flipper contract to the Casper casper-test through the CLI interface.
 
 #### Acceptance Criteria
 
 1. WHEN generating the execution command, THEN the Odra_CLI_System SHALL provide the correct cargo run command with binary specification
 2. WHEN specifying deployment parameters, THEN the Odra_CLI_System SHALL include the deploy subcommand with the script name
-3. WHEN the command is executed, THEN the Odra_CLI_System SHALL connect to the configured Casper testnet endpoint
+3. WHEN the command is executed, THEN the Odra_CLI_System SHALL connect to the configured Casper casper-test endpoint
 4. WHEN deployment succeeds, THEN the Odra_CLI_System SHALL return the deployed contract address
 5. WHEN deployment fails, THEN the Odra_CLI_System SHALL provide clear error messages indicating the failure reason
 

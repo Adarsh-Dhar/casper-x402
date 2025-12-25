@@ -2,10 +2,11 @@
 import { 
   HttpHandler, 
   RpcClient, 
-  NativeTransferBuilder, 
   PrivateKey, 
   KeyAlgorithm, 
-  PublicKey
+  PublicKey,
+  makeCsprTransferDeploy,
+  Deploy
 } from 'casper-js-sdk';
 
 // Casper client configuration
@@ -31,7 +32,7 @@ export class CasperService {
    * @param toAddress - Recipient address (public key hex)
    * @param amountInMotes - Amount to transfer (in motes)
    * @param keyAlgorithm - Key algorithm (default: ED25519)
-   * @returns Signed transaction
+   * @returns Signed deploy
    */
   async createPaymentTransaction(
     privateKeyHex: string,
@@ -51,27 +52,35 @@ export class CasperService {
       
       // Get the public key from the private key
       const fromPublicKey = privateKey.publicKey;
+      const senderPublicKeyHex = fromPublicKey.toHex();
 
       // Parse the recipient's public key
       const toPublicKey = PublicKey.fromHex(toAddress);
+      const recipientPublicKeyHex = toPublicKey.toHex();
 
-      // Create the native transfer using builder pattern
-      // Standard fee for native transfer is 100,000,000 motes (0.1 CSPR)
-      const STANDARD_PAYMENT_AMOUNT = 100_000_000;
+      console.log('Creating transfer deploy...');
+      console.log('Sender:', senderPublicKeyHex);
+      console.log('Recipient:', recipientPublicKeyHex);
+      console.log('Amount:', amountInMotes);
 
-      const transaction = new NativeTransferBuilder()
-        .from(fromPublicKey)
-        .target(toPublicKey)
-        .amount(amountInMotes)
-        .payment(STANDARD_PAYMENT_AMOUNT) // Required: Transaction fee
-        .id(Date.now()) // Required: Transfer ID (memo)
-        .chainName(CASPER_NETWORK_NAME)
-        .build();
+      // Create the deploy using makeCsprTransferDeploy
+      const deploy = makeCsprTransferDeploy({
+        chainName: CASPER_NETWORK_NAME,
+        recipientPublicKeyHex: recipientPublicKeyHex,
+        senderPublicKeyHex: senderPublicKeyHex,
+        transferAmount: amountInMotes,
+        memo: Date.now().toString(), // Use timestamp as memo/ID
+      });
 
-      // Sign the transaction with the user's private key
-      transaction.sign(privateKey);
+      console.log('Deploy created:', deploy);
+      console.log('Deploy hash:', deploy.hash);
 
-      return transaction;
+      // Sign the deploy with the user's private key
+      deploy.sign(privateKey);
+
+      console.log('Deploy signed successfully');
+
+      return deploy;
     } catch (error) {
       console.error('Error creating payment transaction:', error);
       throw new Error(`Failed to create payment transaction: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -80,21 +89,23 @@ export class CasperService {
 
   /**
    * Send transaction to the network
-   * @param transaction - Signed transaction
-   * @returns Transaction hash
+   * @param deploy - Signed deploy
+   * @returns Deploy hash
    */
-  async sendTransaction(transaction: any): Promise<string> {
+  async sendTransaction(deploy: any): Promise<string> {
     try {
-      // Use the SDK's deploy method which handles serialization correctly
-      // This calls account_put_deploy internally and returns the hash
-      const deployResult = await this.rpcClient.waitForDeploy(transaction);
+      console.log('Submitting deploy to network...');
+      console.log('Deploy hash:', deploy.hash);
       
-      // Check for deploy_hash in the result
-      if (deployResult && deployResult.deploy.hash) {
-        return deployResult.deploy.hash.toString();
-      }
+      // Submit the deploy to the network
+      const result = await this.rpcClient.putDeploy(deploy);
       
-      throw new Error("No deploy hash returned from deploy operation");
+      console.log('Deploy submitted successfully:', result);
+      
+      // The result should contain the deploy hash
+      const deployHash = result || deploy.hash;
+      
+      return deployHash.toString();
     } catch (error) {
       console.error('Error sending transaction:', error);
       throw new Error(`Failed to send transaction: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -103,12 +114,12 @@ export class CasperService {
 
   /**
    * Get transaction status
-   * @param transactionHash - Transaction hash to check
-   * @returns Transaction info
+   * @param deployHash - Deploy hash to check
+   * @returns Deploy info
    */
-  async getTransactionStatus(transactionHash: string): Promise<any> {
+  async getTransactionStatus(deployHash: string): Promise<any> {
     try {
-      const deployResult = await this.rpcClient.getDeploy(transactionHash);
+      const deployResult = await this.rpcClient.getDeploy(deployHash);
       return deployResult;
     } catch (error) {
       console.error('Error getting transaction status:', error);
@@ -118,37 +129,32 @@ export class CasperService {
 
   /**
    * Wait for transaction to be executed
-   * @param transactionHash - Transaction hash to wait for
+   * @param deployHash - Deploy hash to wait for
    * @param timeout - Timeout in milliseconds (default: 5 minutes)
    * @returns Transaction execution result
    */
-  async waitForTransaction(transactionHash: string, timeout: number = 300000): Promise<any> {
-    const startTime = Date.now();
-    const pollInterval = 2000; // Poll every 2 seconds
+  async waitForTransaction(deploy: Deploy, timeout: number = 300000): Promise<any> {
+    try {
+      console.log('Waiting for deploy execution:', deploy);
 
-    while (Date.now() - startTime < timeout) {
-      try {
-        const result = await this.rpcClient.getDeploy(transactionHash);
-        
-        if (result) {
-          const executionResult = result.executionResultsV1
-          
-          if (executionResult) {
-            return { success: true, result: true };
-          } else if (executionResult) {
-            return { success: false, error: "error" };
-          }
-        }
-      } catch (error) {
-        // Transaction might not be available yet, continue polling
-        console.log('Waiting for transaction execution...');
+      
+      // Use the SDK's built-in waitForDeploy method
+      const result = await this.rpcClient.waitForDeploy(deploy, timeout);
+      
+      console.log('Deploy execution result:', result);
+      const executionResult = result.executionResultsV1;
+         
+      return { success: true, executionResult };
+    } catch (error) {
+      console.error('Error waiting for transaction:', error);
+      
+      // If timeout or error, still return what we know
+      if (error instanceof Error && error.message.includes('timeout')) {
+        throw new Error('Transaction confirmation timeout. The transaction may still be processing.');
       }
-
-      // Wait before next poll
-      await new Promise(resolve => setTimeout(resolve, pollInterval));
+      
+      throw new Error(`Failed to confirm transaction: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-
-    throw new Error('Transaction execution timeout');
   }
 
   /**
@@ -157,26 +163,26 @@ export class CasperService {
    * @param toAddress - Recipient address (public key hex)
    * @param amountInMotes - Amount in motes
    * @param keyAlgorithm - Key algorithm (ED25519 or SECP256K1)
-   * @returns Transaction hash and signed transaction
+   * @returns Deploy hash and signed deploy
    */
   async createAndSendPayment(
     privateKeyHex: string,
     toAddress: string,
     amountInMotes: string,
     keyAlgorithm: KeyAlgorithm = KeyAlgorithm.ED25519
-  ): Promise<{ transactionHash: string; transaction: any }> {
-    // Create the payment transaction using user's private key
-    const transaction = await this.createPaymentTransaction(
+  ): Promise<{ deployHash: string; deploy: any }> {
+    // Create the payment deploy using user's private key
+    const deploy = await this.createPaymentTransaction(
       privateKeyHex, 
       toAddress, 
       amountInMotes,
       keyAlgorithm
     );
     
-    // Send the transaction to the network
-    const transactionHash = await this.sendTransaction(transaction);
+    // Send the deploy to the network
+    const deployHash = await this.sendTransaction(deploy);
 
-    return { transactionHash, transaction };
+    return { deployHash, deploy };
   }
 
   /**
@@ -286,12 +292,12 @@ export const createPayment = async (
   return casperService.createAndSendPayment(privateKeyHex, toAddress, amountInMotes, keyAlgorithm);
 };
 
-export const checkPaymentStatus = async (transactionHash: string) => {
-  return casperService.getTransactionStatus(transactionHash);
+export const checkPaymentStatus = async (deployHash: string) => {
+  return casperService.getTransactionStatus(deployHash);
 };
 
-export const waitForPaymentConfirmation = async (transactionHash: string) => {
-  return casperService.waitForTransaction(transactionHash);
+export const waitForPaymentConfirmation = async (deploy: Deploy) => {
+  return casperService.waitForTransaction(deploy);
 };
 
 export const getPublicKey = async (

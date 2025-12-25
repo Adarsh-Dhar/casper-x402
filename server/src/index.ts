@@ -14,7 +14,7 @@ const PORT = process.env.PORT || 4402;
 const FACILITATOR_PORT = process.env.FACILITATOR_PORT || 8080;
 const CASPER_CONTRACT_HASH = process.env.CASPER_CONTRACT_HASH;
 const CASPER_PAY_TO = process.env.CASPER_PAY_TO;
-const CASPER_NODE_URL = process.env.CASPER_NODE_URL || 'https://node.testnet.casper.network/rpc';
+const CASPER_NODE_URL = process.env.CASPER_NODE_URL || 'https://node.casper-test.casper.network/rpc';
 const CASPER_NETWORK_NAME = process.env.CASPER_NETWORK_NAME || 'casper-test';
 const FACILITATOR_BASE_URL = `http://localhost:${FACILITATOR_PORT}`;
 
@@ -77,7 +77,7 @@ async function casperX402Middleware(req: express.Request, res: express.Response,
       network: "casper-test",
       contract_hash: CASPER_CONTRACT_HASH,
       pay_to: CASPER_PAY_TO,
-      amount: "2500000000", // 2.5 CSPR in motes (minimum transfer amount on Casper testnet)
+      amount: "2500000000", // 2.5 CSPR in motes (minimum transfer amount on Casper casper-test)
       description: "Premium workshop content access",
       facilitator_url: FACILITATOR_BASE_URL
     };

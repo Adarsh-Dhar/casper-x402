@@ -188,7 +188,7 @@
 - [ ] 13. Final integration and validation
   - Ensure all tests pass, ask the user if questions arise
   - Validate contract compilation to WebAssembly
-  - Test deployment on Casper testnet
+  - Test deployment on Casper casper-test
   - Verify all entry points are accessible and functional
   - Confirm all requirements are met through testing
   - _Requirements: All requirements (final validation)_

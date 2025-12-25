@@ -91,7 +91,7 @@ npm run dev
 - **Server**: Express.js, CORS, x402 middleware
 - **Facilitator**: Rust, Casper SDK, HTTP server
 - **Protocol**: x402 Payment Required standard
-- **Blockchain**: Casper Network (testnet)
+- **Blockchain**: Casper Network (casper-test)
 
 ## Configuration
 
