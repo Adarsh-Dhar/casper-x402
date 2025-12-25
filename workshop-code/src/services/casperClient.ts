@@ -174,7 +174,7 @@ export function createPaymentHeader(
   return JSON.stringify({
     deploy_hash: deployHash,
     sender: senderPublicKey,
-    network: 'casper-test',
+    network: 'casper-custom',
   });
 }
 

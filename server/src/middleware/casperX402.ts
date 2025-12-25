@@ -53,7 +53,7 @@ export const createCasperX402Middleware = (config: CasperX402Config): RequestHan
     payTo,
     amount,
     facilitatorUrl = 'http://localhost:8080',
-    networkName = 'casper-test',
+    networkName = 'casper-custom',
     routes = {},
     debug = false,
   } = config;

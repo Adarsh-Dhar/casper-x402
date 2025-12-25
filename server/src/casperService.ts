@@ -135,7 +135,7 @@ export class CasperTransactionService {
       // console.log('✅ Deploy signed successfully');
       // console.log('   Approvals count:', signedDeploy.approvals.length);
 
-      // console.log('🌐 Submitting to Casper casper-test via RPC...');
+      // console.log('🌐 Submitting to Casper casper-custom via RPC...');
       
       // Submit to the real Casper network
       const deployHash = await this.casperClient.putDeploy(signedDeploy);
@@ -225,7 +225,7 @@ export class CasperTransactionService {
       // console.log('✅ Signature attached to deploy');
       // console.log('   Approvals count:', signedDeploy.approvals.length);
 
-      // console.log('🌐 Submitting to Casper casper-test via RPC...');
+      // console.log('🌐 Submitting to Casper casper-custom via RPC...');
       
       // Submit to the real Casper network
       const deployHash = await this.casperClient.putDeploy(signedDeploy);

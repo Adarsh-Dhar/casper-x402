@@ -6,14 +6,14 @@
 # Get account hash from public key
 ACCOUNT_HASH=$(casper-client account-address --public-key ./keys/public_key.pem)
 
-echo "🚀 Deploying Casper Vault Facilitator to casper-test"
+echo "🚀 Deploying Casper Vault Facilitator to casper-custom"
 echo "Account: $ACCOUNT_HASH"
-echo "RPC: https://node.casper-test.casper.network/rpc"
+echo "RPC: https://node.casper-custom.casper.network/rpc"
 echo ""
 
 casper-client put-deploy \
-  --node-address "https://node.casper-test.casper.network/rpc" \
-  --chain-name "casper-test" \
+  --node-address "https://node.casper-custom.casper.network/rpc" \
+  --chain-name "casper-custom" \
   --secret-key "./keys/secret_key.pem" \
   --payment-amount "300000000000" \
   --session-path "./target/wasm32-unknown-unknown/release/casper_vault_facilitator.wasm" \
@@ -26,4 +26,4 @@ echo ""
 echo "✅ Deployment command executed!"
 echo "📋 Copy the deploy_hash from the output above"
 echo "🔍 Check status with: python3 check_deployment.py YOUR_DEPLOY_HASH"
-echo "🌐 Or visit: https://casper-test.cspr.live/deploy/YOUR_DEPLOY_HASH"
+echo "🌐 Or visit: https://casper-custom.cspr.live/deploy/YOUR_DEPLOY_HASH"

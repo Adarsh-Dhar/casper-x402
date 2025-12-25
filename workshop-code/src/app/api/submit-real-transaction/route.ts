@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
         (process.env.CASPER_NODE_URL || process.env.NEXT_PUBLIC_CASPER_NODE_URL || 'https://node.testnet.casper.network/rpc')
           .trim();
       const chainName =
-        (process.env.CASPER_NETWORK_NAME || process.env.NEXT_PUBLIC_CASPER_NETWORK_NAME || 'casper-test').trim();
+        (process.env.CASPER_NETWORK_NAME || process.env.NEXT_PUBLIC_CASPER_NETWORK_NAME || 'casper-custom').trim();
 
       if (!payTo || !payAmount) {
         return NextResponse.json(
@@ -146,11 +146,19 @@ export async function POST(request: NextRequest) {
         timestamp: (sub(new Date(), { seconds: 2 })).toDateString(),
       });
 
+      console.log("deploy", deploy)
+
       deploy.sign(privateKey);
 
-      const rpcHandler = new HttpHandler(nodeUrl);
+      console.log("deploy1", deploy)
+
+
+      const rpcHandler = new HttpHandler("http://34.222.193.169:7777/rpc");
+      console.log("rpcHandler", rpcHandler)
       const rpcClient = new RpcClient(rpcHandler);
+      console.log("rpcClient", rpcClient)
       const submitResult = await rpcClient.putDeploy(deploy);
+      console.log("submit result", submitResult)
       const deployHashOut =
         typeof (submitResult as { deployHash?: { toHex?: () => string; toString: () => string } })?.deployHash?.toHex ===
         'function'

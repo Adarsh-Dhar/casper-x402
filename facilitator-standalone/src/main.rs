@@ -110,7 +110,7 @@ async fn config_handler() -> Result<impl warp::Reply, Infallible> {
     let response = ConfigResponse {
         contract_hash: std::env::var("CONTRACT_HASH")
             .unwrap_or_else(|_| "6a545487ba47c62bdf02f68a9d8ada590fef2a1d28778dd5b346d63927e61b4a".to_string()),
-        network: "casper-test".to_string(),
+        network: "casper-custom".to_string(),
         supported_tokens: vec!["CSPR".to_string()],
         fee_rates: FeeRates {
             base_rate: 100000000, // 0.1 CSPR

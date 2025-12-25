@@ -28,7 +28,7 @@ export function useCasperX402() {
   const [paymentData, setPaymentData] = useState<PaymentData | null>(null);
 
   const nodeUrl = '/api/casper-rpc';
-  const networkName = process.env.NEXT_PUBLIC_CASPER_NETWORK_NAME || 'casper-test';
+  const networkName = process.env.NEXT_PUBLIC_CASPER_NETWORK_NAME || 'casper-custom';
 
   const payWithPemSigner = async (payTo: string, payAmount: string) => {
     const response = await fetch('/api/submit-real-transaction', {

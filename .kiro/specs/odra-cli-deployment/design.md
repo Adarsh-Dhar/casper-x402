@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Odra CLI Deployment system provides a streamlined, Rust-native approach for deploying the Flipper smart contract to the Casper casper-test. The system leverages the existing Odra CLI framework to create a deployment script that follows the established DeployScript pattern, ensuring idempotent deployments with proper error handling and environment configuration.
+The Odra CLI Deployment system provides a streamlined, Rust-native approach for deploying the Flipper smart contract to the Casper casper-custom. The system leverages the existing Odra CLI framework to create a deployment script that follows the established DeployScript pattern, ensuring idempotent deployments with proper error handling and environment configuration.
 
 The design builds upon the existing CLI infrastructure in the project, extending it with proper environment configuration and deployment commands while maintaining compatibility with the current Odra framework setup.
 
@@ -34,7 +34,7 @@ graph TD
 ## Components and Interfaces
 
 ### 1. Environment Configuration Module
-**Purpose**: Manages Casper casper-test connection parameters and authentication
+**Purpose**: Manages Casper casper-custom connection parameters and authentication
 
 **Interface**:
 ```rust
@@ -47,7 +47,7 @@ ODRA_CASPER_SECRET_KEY_PATH: String
 **Implementation Strategy**:
 - Uses `.env` file in project root for configuration
 - Leverages Odra CLI's built-in environment variable loading
-- Provides sensible defaults for Casper casper-test deployment
+- Provides sensible defaults for Casper casper-custom deployment
 
 ### 2. CLI Entry Point Module
 **Purpose**: Initializes and configures the Odra CLI framework
@@ -112,7 +112,7 @@ impl ContractProvider for Flipper { ... }
 // Environment configuration (loaded from .env)
 pub struct CasperConfig {
     pub node_address: String,      // "http://65.21.227.180:7777"
-    pub chain_name: String,        // "casper-test"
+    pub chain_name: String,        // "casper-custom"
     pub secret_key_path: String,   // "keys/secret_key.pem"
 }
 ```
@@ -160,7 +160,7 @@ The reflection process consolidated related validations into comprehensive prope
 **Validates: Requirements 5.5**
 
 **Property 3: Network connectivity verification**
-*For any* deployment execution, the system should attempt to connect to the configured Casper casper-test endpoint using the provided configuration
+*For any* deployment execution, the system should attempt to connect to the configured Casper casper-custom endpoint using the provided configuration
 **Validates: Requirements 6.3**
 
 **Property 4: Successful deployment address consistency**
@@ -256,7 +256,7 @@ Property tests verify universal behaviors using the Proptest library for Rust:
 - Property tests run as part of the standard test suite using `cargo test`
 
 ### Integration Testing
-- End-to-end deployment testing with real Casper casper-test
+- End-to-end deployment testing with real Casper casper-custom
 - CLI command execution testing with various argument combinations
 - Environment configuration testing with different .env file states
 - Cross-platform testing (macOS, Linux, Windows)

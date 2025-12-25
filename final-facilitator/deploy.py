@@ -9,8 +9,8 @@ import datetime
 import json
 
 # Configuration
-NODE_ADDRESS = "https://node.casper-test.casper.network/rpc"
-CHAIN_NAME = "casper-test"
+NODE_ADDRESS = "https://node.casper-custom.casper.network/rpc"
+CHAIN_NAME = "casper-custom"
 SECRET_KEY_PATH = "./keys/secret_key.pem"
 PAYMENT_AMOUNT = "350000000000"  # 350 CSPR
 
@@ -142,7 +142,7 @@ This contract is ultra minimal and requires NO parameters:
 - Minimal code footprint
 
 ### Deployment Details
-- **Network**: Casper casper-test
+- **Network**: Casper casper-custom
 - **Node**: {NODE_ADDRESS}
 - **Account**: account-hash-7b3600313b31fe453066721fd05f8eba4698c9f349d82a64b949ec3d316ee99a
 - **Payment**: 350 CSPR
@@ -152,7 +152,7 @@ This contract is ultra minimal and requires NO parameters:
 - **Deployed**: {datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}
 
 ### Verification
-🔗 **casper-test Explorer**: https://testnet.cspr.live/deploy/{deploy_hash}
+🔗 **casper-custom Explorer**: https://testnet.cspr.live/deploy/{deploy_hash}
 
 ### What This Proves
 1. **WASM Deployment Works**: The deployment mechanism is functional

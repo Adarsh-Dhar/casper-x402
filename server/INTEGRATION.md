@@ -71,7 +71,7 @@ Server and facilitator configuration
 ```json
 {
   "server": "X402 Casper Workshop Server",
-  "network": "casper-test",
+  "network": "casper-custom",
   "contract_hash": "...",
   "facilitator_url": "http://localhost:8080",
   "supported_tokens": ["CSPR"],
@@ -92,7 +92,7 @@ Requires payment header. Returns 402 if no payment provided.
 ```
 Status: 402 Payment Required
 Headers:
-  X-PAYMENT-REQUIRED: {"network":"casper-test","contract_hash":"...","pay_to":"...","amount":"1000000000","description":"Premium workshop content access","facilitator_url":"http://localhost:8080"}
+  X-PAYMENT-REQUIRED: {"network":"casper-custom","contract_hash":"...","pay_to":"...","amount":"1000000000","description":"Premium workshop content access","facilitator_url":"http://localhost:8080"}
 ```
 
 **With Valid Payment:**

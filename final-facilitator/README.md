@@ -1,6 +1,6 @@
 # Casper Vault Facilitator
 
-## ✅ Successfully Deployed on Casper casper-test
+## ✅ Successfully Deployed on Casper casper-custom
 
 **Deploy Hash**: `6a545487ba47c62bdf02f68a9d8ada590fef2a1d28778dd5b346d63927e61b4a`
 
@@ -12,7 +12,7 @@ python3 deploy.py
 ```
 
 ### Verify Deployment
-🔗 **casper-test Explorer**: https://testnet.cspr.live/deploy/6a545487ba47c62bdf02f68a9d8ada590fef2a1d28778dd5b346d63927e61b4a
+🔗 **casper-custom Explorer**: https://testnet.cspr.live/deploy/6a545487ba47c62bdf02f68a9d8ada590fef2a1d28778dd5b346d63927e61b4a
 
 ## Project Structure
 
@@ -31,7 +31,7 @@ final-facilitator/
 
 ## Contract Details
 
-- **Network**: Casper casper-test
+- **Network**: Casper casper-custom
 - **Size**: 8,958 bytes (ultra minimal)
 - **Functionality**: Stores `total_supply` value of 1,000,000
 - **Approach**: No parameters (avoids deployment complexity)

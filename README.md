@@ -91,7 +91,7 @@ npm run dev
 - **Server**: Express.js, CORS, x402 middleware
 - **Facilitator**: Rust, Casper SDK, HTTP server
 - **Protocol**: x402 Payment Required standard
-- **Blockchain**: Casper Network (casper-test)
+- **Blockchain**: Casper Network (casper-custom)
 
 ## Configuration
 
@@ -109,7 +109,7 @@ PORT=4402
 ```env
 SERVER_URL=http://localhost:4402
 CASPER_NODE_URL=http://localhost:11101/rpc
-CASPER_NETWORK_NAME=casper-test
+CASPER_NETWORK_NAME=casper-custom
 ```
 
 ## API Endpoints

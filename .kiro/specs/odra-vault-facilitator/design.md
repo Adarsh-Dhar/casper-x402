@@ -387,7 +387,7 @@ Property-based testing will use **Proptest** (Rust) for comprehensive validation
 
 ### Integration Testing
 
-- End-to-end testing with real CEP-18 token contracts on Casper casper-test
+- End-to-end testing with real CEP-18 token contracts on Casper casper-custom
 - Multi-user scenario testing with concurrent operations
 - Gas usage optimization testing for large-scale operations
 - Cross-contract interaction testing with various CEP-18 implementations

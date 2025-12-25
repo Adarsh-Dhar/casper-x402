@@ -80,7 +80,7 @@
 - [ ] 6. Implement deploy generation module
   - [x] 6.1 Create deploy generation function
     - Execute casper-client make-deploy with detected WASM file
-    - Target casper-test network with appropriate parameters
+    - Target casper-custom network with appropriate parameters
     - Use configured private key for signing
     - _Requirements: 5.1, 5.2, 5.3_
 
@@ -108,7 +108,7 @@
 
 - [ ] 7. Implement network submission module
   - [x] 7.1 Create network submission function
-    - Send deploy JSON to Casper casper-test RPC endpoint
+    - Send deploy JSON to Casper casper-custom RPC endpoint
     - Include API key authentication in headers
     - Configure SSL context for macOS compatibility
     - _Requirements: 6.1, 6.2, 6.3_
