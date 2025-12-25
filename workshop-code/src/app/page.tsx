@@ -105,7 +105,7 @@ export default function Home() {
 
         <div className="grid gap-6 lg:grid-cols-2">
           <Card title="Private Key Setup" className="shadow-lg">
-             <Space orientation="vertical" className="w-full">
+             <Space direction="vertical" className="w-full">
                 <Paragraph>
                   Enter your private key (hex format) to sign transactions.
                   Supports both ED25519 and SECP256K1 key formats.
@@ -130,7 +130,7 @@ export default function Home() {
             {keyPair && (
               <div className="mt-4">
                 <Alert
-                  title="Key Pair Loaded"
+                  message="Key Pair Loaded"
                   description={
                     <div>
                       <div><strong>Public Key:</strong> {keyPair.publicKey}</div>
@@ -145,7 +145,7 @@ export default function Home() {
           </Card>
 
           <Card title="Premium Content Access" className="shadow-lg">
-            <Space orientation="vertical" className="w-full">
+            <Space direction="vertical" className="w-full">
               <Paragraph>
                 This premium content requires payment of <Text strong>1 CSPR</Text> ({csprToMotes(1)} motes) to unlock.
               </Paragraph>
@@ -162,7 +162,7 @@ export default function Home() {
               </Button>
 
               {error && (
-                <Alert title="Error" description={error} type="error" showIcon />
+                <Alert message="Error" description={error} type="error" showIcon />
               )}
 
               {paymentData && (
@@ -190,7 +190,7 @@ export default function Home() {
                   </Descriptions>
                   <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded">
                     <Text className="text-yellow-800 text-sm">
-                      ⏳ <strong>Transaction submitted to Casper casper-test!</strong><br/>
+                      ⏳ <strong>Transaction submitted to Casper testnet!</strong><br/>
                       Balance will update automatically after blockchain confirmation (30-60 seconds).
                     </Text>
                   </div>
@@ -229,10 +229,10 @@ export default function Home() {
             <div>
               <Title level={4}>Technical Stack</Title>
               <ul className="list-disc list-inside space-y-2 text-gray-700">
-                <li><strong>Frontend:</strong> Next.js with Casper JS SDK v5</li>
+                <li><strong>Frontend:</strong> Next.js with Casper JS SDK v5.0.7</li>
                 <li><strong>Server:</strong> Express.js with x402 middleware</li>
                 <li><strong>Facilitator:</strong> Rust-based Casper facilitator</li>
-                <li><strong>Blockchain:</strong> Casper casper-test</li>
+                <li><strong>Blockchain:</strong> Casper testnet</li>
                 <li><strong>Protocol:</strong> HTTP 402 Payment Required</li>
                 <li><strong>Cryptography:</strong> ED25519 & SECP256K1 signatures</li>
               </ul>

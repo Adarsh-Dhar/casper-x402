@@ -1,214 +1,247 @@
-import { 
-  PrivateKey, 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useState } from 'react';
+import {
+  PrivateKey,
+  PublicKey,
   KeyAlgorithm,
-  PublicKey
+  makeCsprTransferDeploy,
+  HttpHandler,
+  RpcClient,
 } from 'casper-js-sdk';
-import { useState, useCallback } from 'react';
-import { casperService } from '@/services/casperClient';
-
-export interface PaymentInfo {
-  network: string;
-  contract_hash: string;
-  pay_to: string;
-  amount: string;
-  description: string;
-  facilitator_url: string;
-}
-
-export interface PaymentData {
-  deploy_hash: string;
-  public_key: string;
-  signature: string;
-  amount: string;
-  recipient: string;
-  timestamp: number;
-}
 
 export interface KeyPairInfo {
   publicKey: string;
   privateKey: string;
   accountHash: string;
-  keyInstance?: PrivateKey;
 }
 
-export class CasperPaymentClient {
-  private networkName: string;
-  private nodeUrl: string;
-
-  constructor(nodeUrl: string = 'https://node.casper-test.casper.network/rpc', networkName: string = 'casper-test') {
-    this.networkName = networkName;
-    this.nodeUrl = nodeUrl;
-  }
-
-  /**
-   * Load Key Pair from Hex (Async for SDK v5)
-   */
-  async loadKeyPairFromHex(privateKeyHex: string): Promise<KeyPairInfo> {
-    try {
-      // Clean the hex string
-      let cleanHex = privateKeyHex.trim();
-      if (cleanHex.startsWith('0x')) {
-        cleanHex = cleanHex.slice(2);
-      }
-      cleanHex = cleanHex.replace(/[^0-9a-fA-F]/g, '');
-
-      if (!cleanHex || cleanHex.length === 0) {
-        throw new Error('Invalid private key: empty after cleaning');
-      }
-
-      let privateKey: PrivateKey;
-
-      // Try Secp256k1 first (common for wallet keys)
-      try {
-        privateKey = await PrivateKey.fromHex(cleanHex, KeyAlgorithm.SECP256K1);
-      } catch (secp256k1Error) {
-        // Fallback to Ed25519
-        try {
-          privateKey = await PrivateKey.fromHex(cleanHex, KeyAlgorithm.ED25519);
-        } catch (ed25519Error) {
-          throw new Error('Invalid private key format for both SECP256K1 and ED25519');
-        }
-      }
-
-      const publicKey = privateKey.publicKey;
-
-      return {
-        publicKey: publicKey.toHex(),
-        privateKey: cleanHex,
-        accountHash: publicKey.accountHash().toPrefixedString(),
-        keyInstance: privateKey
-      };
-    } catch (error) {
-      console.error('Error loading key pair:', error);
-      throw error instanceof Error ? error : new Error('Failed to load key pair from hex');
-    }
-  }
-
-  /**
-   * Convert CSPR to Motes
-   */
-  csprToMotes(cspr: number | string): string {
-    const csprValue = typeof cspr === 'string' ? parseFloat(cspr) : cspr;
-    if (isNaN(csprValue)) {
-      throw new Error('Invalid CSPR amount');
-    }
-    const motes = csprValue * 1_000_000_000;
-    return Math.floor(motes).toString();
-  }
-
-  /**
-   * Convert Motes to CSPR
-   */
-  motesToCspr(motes: string | number): number {
-    const motesValue = typeof motes === 'string' ? parseFloat(motes) : motes;
-    if (isNaN(motesValue)) {
-      throw new Error('Invalid motes amount');
-    }
-    return motesValue / 1_000_000_000;
-  }
+export interface PaymentData {
+  deploy_hash: string;
+  amount: string;
+  recipient: string;
+  timestamp: number;
 }
 
-// Hook implementation
-export const useCasperX402 = () => {
+export function useCasperX402() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [paymentData, setPaymentData] = useState<PaymentData | null>(null);
-  
-  const client = new CasperPaymentClient();
 
-  const clearError = useCallback(() => setError(null), []);
+  const nodeUrl = process.env.NEXT_PUBLIC_CASPER_NODE_URL || 'http://localhost:11101/rpc';
+  const networkName = process.env.NEXT_PUBLIC_CASPER_NETWORK_NAME || 'casper-test';
 
-  const loadKeyPair = async (hex: string) => {
-    setLoading(true);
+  // Utility functions
+  const csprToMotes = (cspr: number): string => {
+    return (cspr * 1_000_000_000).toString();
+  };
+
+  const motesToCspr = (motes: string | number): number => {
+    return Number(motes) / 1_000_000_000;
+  };
+
+  const clearError = () => {
+    setError(null);
+  };
+
+  // Load key pair from private key
+  const loadKeyPair = async (privateKeyHex: string): Promise<KeyPairInfo> => {
     try {
-      return await client.loadKeyPairFromHex(hex);
+      setLoading(true);
+      setError(null);
+
+      // Remove any whitespace or 0x prefix
+      const cleanHex = privateKeyHex.trim().replace(/^0x/, '');
+
+      // Validate hex format
+      if (!/^[0-9a-fA-F]{64}$/.test(cleanHex)) {
+        throw new Error('Invalid private key format. Expected 64 hex characters.');
+      }
+
+      // Try ED25519 first (most common)
+      let privateKey: PrivateKey;
+      let publicKey: PublicKey;
+
+      try {
+        privateKey = await PrivateKey.fromHex(cleanHex, KeyAlgorithm.ED25519);
+        publicKey = privateKey.publicKey;
+      } catch (ed25519Error) {
+        // If ED25519 fails, try SECP256K1
+        try {
+          privateKey = await PrivateKey.fromHex(cleanHex, KeyAlgorithm.SECP256K1);
+          publicKey = privateKey.publicKey;
+        } catch (secp256k1Error) {
+          throw new Error('Failed to parse private key. Tried both ED25519 and SECP256K1.');
+        }
+      }
+
+      const publicKeyHex = publicKey.toHex();
+      const accountHash = publicKey.accountHash.toString();
+
+      const keyPairInfo: KeyPairInfo = {
+        publicKey: publicKeyHex,
+        privateKey: cleanHex,
+        accountHash,
+      };
+
+      console.log('✅ Key pair loaded successfully');
+      console.log('Public Key:', publicKeyHex);
+      console.log('Account Hash:', accountHash);
+
+      return keyPairInfo;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load key');
+      const errorMsg = err instanceof Error ? err.message : 'Failed to load key pair';
+      setError(errorMsg);
       throw err;
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchWithPayment = async (url: string, keyPair: KeyPairInfo) => {
+  // Create and sign a Casper transfer
+  const createSignedTransfer = async (
+    keyPair: KeyPairInfo,
+    recipientPublicKeyHex: string,
+    amount: string
+  ): Promise<string> => {
+    try {
+      console.log('Creating transfer...');
+      console.log('Sender:', keyPair.publicKey);
+      console.log('Recipient:', recipientPublicKeyHex);
+      console.log('Amount:', amount, 'motes');
+
+      // Load private key
+      let privateKey: PrivateKey;
+      try {
+        privateKey = await PrivateKey.fromHex(keyPair.privateKey, KeyAlgorithm.ED25519);
+      } catch {
+        privateKey = await PrivateKey.fromHex(keyPair.privateKey, KeyAlgorithm.SECP256K1);
+      }
+
+      // Create deploy using v5 utility function
+      const deploy = makeCsprTransferDeploy({
+        senderPublicKeyHex: keyPair.publicKey,
+        recipientPublicKeyHex: recipientPublicKeyHex,
+        transferAmount: amount,
+        chainName: networkName,
+        paymentAmount: '100000000', // 0.1 CSPR for native transfer
+      });
+
+      // Sign the deploy
+      deploy.sign(privateKey);
+
+      console.log('✅ Deploy created and signed');
+      console.log('Deploy hash:', deploy.hash.toHex());
+
+      // Send to network
+      const rpcHandler = new HttpHandler(nodeUrl);
+      const rpcClient = new RpcClient(rpcHandler);
+
+      console.log('📤 Submitting to network...');
+      const result = await rpcClient.putDeploy(deploy);
+
+      console.log('✅ Transaction sent successfully!');
+      console.log('Deploy hash:', result.deployHash);
+
+      return result.deployHash.toString();
+    } catch (err) {
+      console.error('❌ Error creating/sending transfer:', err);
+      throw err;
+    }
+  };
+
+  // Fetch with x402 payment
+  const fetchWithPayment = async (
+    url: string,
+    keyPair: KeyPairInfo
+  ): Promise<Response> => {
     setLoading(true);
     setError(null);
+    setPaymentData(null);
+
     try {
-      // 1. Initial request to check for 402 Payment Required
-      const res = await fetch(url);
-      
-      if (res.status === 402) {
-        if (!keyPair) throw new Error("No keys loaded");
+      console.log('🔄 Making initial request:', url);
 
-        const data = await res.json().catch(() => ({}));
-        
-        const DEFAULT_PAY_TO = '0202c9bda7c0da47cf0bbcd9972f8f40be72a81fa146df672c60595ca1807627403e';
+      // First request - should return 402
+      const initialResponse = await fetch(url);
 
-        const paymentInfo: PaymentInfo = {
-            network: 'casper-test',
-            contract_hash: '', 
-            pay_to: data.payTo || DEFAULT_PAY_TO, // Use valid key
-            amount: '1000000000', // 1 CSPR
-            description: 'Premium Content',
-            facilitator_url: ''
-        };
-
-        // 2. Create and Sign the Real Transaction using the Private Key
-        // Detect algorithm from public key prefix (01 = Ed25519, 02 = Secp256k1)
-        const algo = keyPair.publicKey.startsWith('02') ? KeyAlgorithm.SECP256K1 : KeyAlgorithm.ED25519;
-
-        const signedDeploy = await casperService.createPaymentTransaction(
-          keyPair.privateKey,
-          paymentInfo.pay_to,
-          paymentInfo.amount,
-          algo
-        );
-
-        // 3. Send the deploy to the network
-        const deployHash = await casperService.sendTransaction(signedDeploy);
-
-        // 4. Construct the X-Payment data header
-        // We need the signature in hex format
-        const signature = signedDeploy.approvals[0].signature;
-        
-        const pData: PaymentData = {
-          deploy_hash: deployHash,
-          public_key: keyPair.publicKey,
-          signature: signature.toHex(),
-          amount: paymentInfo.amount,
-          recipient: paymentInfo.pay_to,
-          timestamp: Math.floor(Date.now() / 1000)
-        };
-
-        setPaymentData(pData);
-        
-        // 5. Retry the request with the payment data
-        const res2 = await fetch(url, {
-          headers: {
-             'x-payment': JSON.stringify(pData)
-          }
-        });
-        return res2;
+      if (initialResponse.status === 200) {
+        console.log('✅ No payment required');
+        setLoading(false);
+        return initialResponse;
       }
-      return res;
+
+      if (initialResponse.status !== 402) {
+        throw new Error(`Unexpected status: ${initialResponse.status}`);
+      }
+
+      console.log('💳 Payment required (402)');
+
+      // Get payment requirements from headers
+      const payTo = initialResponse.headers.get('X-Pay-To');
+      const payAmount = initialResponse.headers.get('X-Pay-Amount');
+
+      if (!payTo || !payAmount) {
+        throw new Error('Missing payment headers');
+      }
+
+      console.log('Payment requirements:');
+      console.log('- Recipient:', payTo);
+      console.log('- Amount:', payAmount, 'motes');
+
+      // Create and send the transfer
+      const deployHash = await createSignedTransfer(keyPair, payTo, payAmount);
+
+      // Store payment data
+      const payment: PaymentData = {
+        deploy_hash: deployHash,
+        amount: payAmount,
+        recipient: payTo,
+        timestamp: Math.floor(Date.now() / 1000),
+      };
+      setPaymentData(payment);
+
+      // Create payment proof
+      const paymentProof = JSON.stringify({
+        deploy_hash: deployHash,
+        sender: keyPair.publicKey,
+        network: networkName,
+      });
+
+      console.log('🔄 Retrying request with payment proof...');
+
+      // Retry request with payment proof
+      const retryResponse = await fetch(url, {
+        headers: {
+          'X-Payment': paymentProof,
+        },
+      });
+
+      if (!retryResponse.ok) {
+        const errorText = await retryResponse.text();
+        throw new Error(`Payment verification failed: ${errorText}`);
+      }
+
+      console.log('✅ Payment verified! Content unlocked.');
+
+      return retryResponse;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Payment failed');
+      const errorMsg = err instanceof Error ? err.message : 'Payment failed';
+      setError(errorMsg);
+      console.error('❌ Error in fetchWithPayment:', err);
       throw err;
     } finally {
       setLoading(false);
     }
-  }
+  };
 
   return {
     loading,
     error,
     paymentData,
-    fetchWithPayment,
     loadKeyPair,
+    fetchWithPayment,
     clearError,
-    csprToMotes: client.csprToMotes,
-    motesToCspr: client.motesToCspr
+    csprToMotes,
+    motesToCspr,
   };
-};
-
-export default useCasperX402;
+}
