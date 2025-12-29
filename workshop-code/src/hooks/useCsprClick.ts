@@ -95,7 +95,7 @@ const useCsprClick = () => {
       
       // Use the user's actual casper-custom account
       const userActualAccount: ActiveAccountType = {
-        public_key: '0202c9bda7c0da47cf0bbcd9972f8f40be72a81fa146df672c60595ca1807627403e',
+        public_key: '0203310ba99e2a5f3b9ef21f342e4c9c74560cef7fe0270d164275a855dfe73cda61',
         account_hash: 'account-hash-8ef424a9a53a1a6547b2130dffad569d3a639944d21946ec0f831196510fa765',
         balance: { liquid_balance_main_purse: '5000000000000' }
       };
@@ -212,7 +212,7 @@ const useCsprClick = () => {
       // Fallback: Use the user's actual public key for testing
       // console.log('No real wallet detected, using user\'s actual casper-custom account...');
       const userActualAccount: ActiveAccountType = {
-        public_key: '0202c9bda7c0da47cf0bbcd9972f8f40be72a81fa146df672c60595ca1807627403e',
+        public_key: '0203310ba99e2a5f3b9ef21f342e4c9c74560cef7fe0270d164275a855dfe73cda61',
         account_hash: 'account-hash-8ef424a9a53a1a6547b2130dffad569d3a639944d21946ec0f831196510fa765',
         balance: { liquid_balance_main_purse: '5000000000000' }
       };

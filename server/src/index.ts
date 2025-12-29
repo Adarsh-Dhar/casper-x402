@@ -53,8 +53,8 @@ declare global {
 
 // Configuration
 const CASPER_CONFIG: CasperConfig = {
-  payTo: process.env.CASPER_PAY_TO || '0202c9bda7c0da47cf0bbcd9972f8f40be72a81fa146df672c60595ca1807627403e',
-  amount: process.env.CASPER_AMOUNT || '2500000000',
+  payTo: process.env.CASPER_PAY_TO || '0203310ba99e2a5f3b9ef21f342e4c9c74560cef7fe0270d164275a855dfe73cda61',
+  amount: process.env.CASPER_AMOUNT || '100000000',
   facilitatorUrl: process.env.FACILITATOR_URL || 'http://localhost:8080',
   networkName: process.env.CASPER_NETWORK_NAME || 'casper-custom',
   contractHash: process.env.CASPER_CONTRACT_HASH || '',

@@ -38,18 +38,22 @@ export function useCasperX402() {
     });
 
     const body = (await response.json()) as any;
+
+    // Always log balance info if available (for debugging)
+    if (body?.senderPublicKey) console.log('Sender Public Key:', body.senderPublicKey);
+    if (body?.senderBalanceMotes) console.log('💰 Sender Balance (motes):', body.senderBalanceMotes);
+    if (body?.senderBalanceCSPR) console.log('💰 Sender Balance (CSPR):', body.senderBalanceCSPR);
+    if (body?.senderBalanceMotes && !body?.senderBalanceCSPR) console.log('💰 Sender Balance (CSPR):', motesToCspr(body.senderBalanceMotes));
+    if (body?.requiredTotalMotes) console.log('📊 Required Total (motes):', body.requiredTotalMotes);
+    if (body?.requiredCSPR) console.log('📊 Required Total (CSPR):', body.requiredCSPR);
+    if (body?.payAmount) console.log('💸 Transfer Amount (motes):', body.payAmount);
+    if (body?.paymentAmount) console.log('⛽ Gas/Payment (motes):', body.paymentAmount);
+
     if (!response.ok || !body?.success) {
       const message = typeof body?.message === 'string' ? body.message : 'Failed to submit payment deploy';
       throw new Error(message);
     }
 
-    if (body?.senderPublicKey) console.log('Sender Public Key:', body.senderPublicKey);
-    if (body?.senderBalanceMotes) console.log('Sender Balance (motes):', body.senderBalanceMotes);
-    if (body?.senderBalanceMotes) console.log('Sender Balance (CSPR):', motesToCspr(body.senderBalanceMotes));
-    if (body?.requiredTotalMotes) console.log('Tx Required Total (motes):', body.requiredTotalMotes);
-    if (body?.requiredTotalMotes) console.log('Tx Required Total (CSPR):', motesToCspr(body.requiredTotalMotes));
-    if (body?.payAmount) console.log('Tx Transfer Amount (motes):', body.payAmount);
-    if (body?.paymentAmount) console.log('Tx Payment Amount (motes):', body.paymentAmount);
 
     return body as {
       deployHash: string;

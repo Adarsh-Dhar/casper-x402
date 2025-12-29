@@ -126,7 +126,7 @@ export class CasperTransactionService {
       const { deploy: testDeploy } = await this.createTransferDeploy(
         keyPair.publicKey.toHex(),
         publicKeyHex, // Send to the original target
-        '2500000000' // 2.5 CSPR (same as original request)
+        '100000000' // 2.5 CSPR (same as original request)
       );
 
       // Sign the deploy

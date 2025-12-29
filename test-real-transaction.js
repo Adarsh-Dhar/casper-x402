@@ -11,9 +11,9 @@ async function testRealTransaction() {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      fromPublicKey: '0202c9bda7c0da47cf0bbcd9972f8f40be72a81fa146df672c60595ca1807627403e',
-      toPublicKey: '02037a9634b3d340f3ea6f7403f95d9698b23fca03623ac94b619a96898b897b0dad',
-      amount: '2500000000' // 2.5 CSPR
+      fromPublicKey: '0202742321905bbc93ab2bcc0505b207e31180cbae251c48ee95246b44ee832df271',
+      toPublicKey: '0203310ba99e2a5f3b9ef21f342e4c9c74560cef7fe0270d164275a855dfe73cda61',
+      amount: '100000000' // 2.5 CSPR
     })
   });
   

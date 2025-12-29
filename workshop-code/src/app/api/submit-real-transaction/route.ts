@@ -121,21 +121,36 @@ export async function POST(request: NextRequest) {
         throw e;
       }
 
+      // Log balance info for debugging
+      const balanceInCSPR = (BigInt(senderBalanceMotes) / BigInt(1_000_000_000)).toString();
+      const requiredInCSPR = (BigInt(requiredTotalMotes) / BigInt(1_000_000_000)).toString();
+      console.log('💰 Balance check:');
+      console.log(`   Sender: ${senderPublicKey}`);
+      console.log(`   Balance: ${senderBalanceMotes} motes (${balanceInCSPR} CSPR)`);
+      console.log(`   Required: ${requiredTotalMotes} motes (${requiredInCSPR} CSPR)`);
+      console.log(`   Pay amount: ${payAmount} motes`);
+      console.log(`   Gas/payment: ${paymentAmount} motes`);
+
       if (BigInt(senderBalanceMotes) < BigInt(requiredTotalMotes)) {
+        console.log('❌ Insufficient funds!');
         return NextResponse.json(
           {
             success: false,
             error: 'Insufficient funds',
-            message: `Insufficient funds. Need ${requiredTotalMotes} motes total.`,
+            message: `Insufficient funds. Need ${requiredTotalMotes} motes total (${requiredInCSPR} CSPR). You have ${senderBalanceMotes} motes (${balanceInCSPR} CSPR).`,
             senderPublicKey,
             senderBalanceMotes,
+            senderBalanceCSPR: balanceInCSPR,
             requiredTotalMotes,
+            requiredCSPR: requiredInCSPR,
             payAmount,
             paymentAmount,
           },
           { status: 400 }
         );
       }
+
+      console.log('✅ Sufficient funds, proceeding with transaction...');
 
       const deploy = makeCsprTransferDeploy({
         senderPublicKeyHex: senderPublicKey,
@@ -152,8 +167,8 @@ export async function POST(request: NextRequest) {
 
       console.log("deploy1", deploy)
 
-
-      const rpcHandler = new HttpHandler("http://34.222.193.169:7777/rpc");
+      // Use port 7777 for JSON-RPC (port 8888 is REST API only)
+      const rpcHandler = new HttpHandler("http://34.220.83.153:7777/rpc");
       console.log("rpcHandler", rpcHandler)
       const rpcClient = new RpcClient(rpcHandler);
       console.log("rpcClient", rpcClient)
