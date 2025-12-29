@@ -9,7 +9,7 @@ import datetime
 import json
 
 # Configuration
-NODE_ADDRESS = "http://34.220.83.153:7777"
+NODE_ADDRESS = "https://node.testnet.casper.network"
 CHAIN_NAME = "casper-test"
 SECRET_KEY_PATH = "./keys/secret_key.pem"
 PAYMENT_AMOUNT = "350000000000"  # 350 CSPR

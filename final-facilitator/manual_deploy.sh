@@ -8,11 +8,11 @@ ACCOUNT_HASH=$(casper-client account-address --public-key ./keys/public_key.pem)
 
 echo "🚀 Deploying Casper Vault Facilitator to casper-test"
 echo "Account: $ACCOUNT_HASH"
-echo "RPC: http://34.220.83.153:7777"
+echo "RPC: https://node.testnet.casper.network"
 echo ""
 
 casper-client put-deploy \
-  --node-address "http://34.220.83.153:7777" \
+  --node-address "https://node.testnet.casper.network" \
   --chain-name "casper-test" \
   --secret-key "./keys/secret_key.pem" \
   --payment-amount "300000000000" \

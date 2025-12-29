@@ -8,7 +8,7 @@ const sanitizeUrl = (value: string) =>
     .replace(/^'|'$/g, '');
 
 const CASPER_RPC_URL = sanitizeUrl(
-  process.env.CASPER_NODE_URL || 'http://34.220.83.153:7777'
+  process.env.CASPER_NODE_URL || 'https://node.testnet.casper.network'
 );
 
 export async function POST(request: NextRequest) {

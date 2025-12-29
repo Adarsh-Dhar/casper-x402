@@ -169,7 +169,7 @@ class SubmissionResult:
 @dataclass
 class DeploymentConfig:
     network: str = "casper-custom"
-    rpc_url: str = "http://34.220.83.153:7777"
+    rpc_url: str = "https://node.testnet.casper.network"
     api_key: str = "019b2b7d-e2ba-752e-a21d-81383b1fd6fe"
     private_key_path: str = "keys/secret_key.pem"
     max_retries: int = 3
